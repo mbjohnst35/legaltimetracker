@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp
+          xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+          xmlns:mailappor="http://schemas.microsoft.com/office/mailappor/2.0"
+          xsi:schemaLocation="http://schemas.microsoft.com/office/appforoffice/1.1
+                              http://schemas.microsoft.com/office/appforoffice/1.1/mailapp/mailapp.xsd"
+          Version="1.0.0.0">
+  <Id>3f0ad961-e0e9-4e08-9999-cc9999999999</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Custom Developer</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Scan Time (AI)"/>
+  <Description DefaultValue="Identifies billable time keywords in email content using Microsoft Graph API."/>
+  <IconUrl DefaultValue="[YOUR_AZURE_SWA_URL]/icon-32.png"/>
+
+  <Hosts>
+    <Host Name="Mailbox"/>
+  </Hosts>
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinimumVersion="1.1"/>
+    </Sets>
+  </Requirements>
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="[YOUR_AZURE_SWA_URL]/taskpane.html"/>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <Permissions>ReadWriteMailbox</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="And">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+  </Rule>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+      <Requirements>
+        <bt:Sets DefaultMinVersion="1.1">
+          <bt:Set Name="Mailbox"/>
+        </bt:Sets>
+      </Requirements>
+      <Hosts>
+        <Host xsi:type="MailHost">
+          <DesktopFormFactor>
+            <FunctionFile resid="Taskpane.Url"/>
+            <ExtensionPoint xsi:type="MessageReadCommandSurface">
+              <OfficeControl id="contextualTab.mailRead">
+                <Control xsi:type="Button" id="msgReadOpenPaneButton">
+                  <Label resid="ActionButton.Label"/>
+                  <Supertip>
+                    <Title resid="ActionButton.Label"/>
+                    <Description resid="ActionButton.ToolTip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16"/>
+                    <bt:Image size="32" resid="Icon.32"/>
+                    <bt:Image size="80" resid="Icon.80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </OfficeControl>
+            </ExtensionPoint>
+          </DesktopFormFactor>
+        </Host>
+      </Hosts>
+      
+      <Resources>
+        <bt:Urls>
+          <bt:Url id="Taskpane.Url" DefaultValue="[YOUR_AZURE_SWA_URL]/taskpane.html"/>
+        </bt:Urls>
+        <bt:Values>
+          <bt:String id="ActionButton.Label" DefaultValue="Scan Time (AI)"/>
+          <bt:String id="ActionButton.ToolTip" DefaultValue="Open the Billable Time Scanner to analyze email."/>
+        </bt:Values>
+        <bt:Images>
+          <bt:Image id="Icon.16" DefaultValue="[YOUR_AZURE_SWA_URL]/icon-16.png"/>
+          <bt:Image id="Icon.32" DefaultValue="[YOUR_AZURE_SWA_URL]/icon-32.png"/>
+          <bt:Image id="Icon.80" DefaultValue="[YOUR_AZURE_SWA_URL]/icon-80.png"/>
+        </bt:Images>
+      </Resources>
+    </VersionOverridesV1_1>
+  </VersionOverrides>
+</OfficeApp>
