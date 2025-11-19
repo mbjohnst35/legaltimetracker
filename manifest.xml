@@ -6,14 +6,15 @@
           xmlns:mailappor="http://schemas.microsoft.com/office/mailappor/2.0"
           xsi:schemaLocation="http://schemas.microsoft.com/office/appforoffice/1.1
                               http://schemas.microsoft.com/office/appforoffice/1.1/mailapp/mailapp.xsd"
-          Version="1.0.0.0">
+          Version="1.0.0.1">
   <Id>3f0ad961-e0e9-4e08-9999-cc9999999999</Id>
-  <Version>1.0.0.0</Version>
+  <Version>1.0.0.1</Version>
   <ProviderName>Custom Developer</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Scan Time (AI)"/>
   <Description DefaultValue="Identifies billable time keywords in email content using Microsoft Graph API."/>
-  <IconUrl DefaultValue="[YOUR_AZURE_SWA_URL]/icon-32.png"/>
+  
+  <IconUrl DefaultValue="https://mbjohnst35.github.io/legaltimetracker/icon-32.png"/>
 
   <Hosts>
     <Host Name="Mailbox"/>
@@ -26,7 +27,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="[YOUR_AZURE_SWA_URL]/taskpane.html"/>
+        <SourceLocation DefaultValue="https://mbjohnst35.github.io/legaltimetracker/taskpane.html"/>
       </DesktopSettings>
     </Form>
   </FormSettings>
@@ -72,16 +73,16 @@
       
       <Resources>
         <bt:Urls>
-          <bt:Url id="Taskpane.Url" DefaultValue="[YOUR_AZURE_SWA_URL]/taskpane.html"/>
+          <bt:Url id="Taskpane.Url" DefaultValue="https://mbjohnst35.github.io/legaltimetracker/taskpane.html"/>
         </bt:Urls>
         <bt:Values>
           <bt:String id="ActionButton.Label" DefaultValue="Scan Time (AI)"/>
           <bt:String id="ActionButton.ToolTip" DefaultValue="Open the Billable Time Scanner to analyze email."/>
         </bt:Values>
         <bt:Images>
-          <bt:Image id="Icon.16" DefaultValue="[YOUR_AZURE_SWA_URL]/icon-16.png"/>
-          <bt:Image id="Icon.32" DefaultValue="[YOUR_AZURE_SWA_URL]/icon-32.png"/>
-          <bt:Image id="Icon.80" DefaultValue="[YOUR_AZURE_SWA_URL]/icon-80.png"/>
+          <bt:Image id="Icon.16" DefaultValue="https://mbjohnst35.github.io/legaltimetracker/icon-16.png"/>
+          <bt:Image id="Icon.32" DefaultValue="https://mbjohnst35.github.io/legaltimetracker/icon-32.png"/>
+          <bt:Image id="Icon.80" DefaultValue="https://mbjohnst35.github.io/legaltimetracker/icon-80.png"/>
         </bt:Images>
       </Resources>
     </VersionOverridesV1_1>
