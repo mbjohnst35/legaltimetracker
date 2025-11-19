@@ -38,6 +38,7 @@
   </Rule>
 
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
       <Requirements>
         <bt:Sets DefaultMinVersion="1.1">
@@ -86,5 +87,5 @@
         </bt:Images>
       </Resources>
     </VersionOverridesV1_1>
-  </VersionOverrides>
+    </VersionOverrides>
 </OfficeApp>
