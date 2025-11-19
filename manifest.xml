@@ -6,9 +6,9 @@
           xmlns:mailappor="http://schemas.microsoft.com/office/mailappor/2.0"
           xsi:schemaLocation="http://schemas.microsoft.com/office/appforoffice/1.1
                               http://schemas.microsoft.com/office/appforoffice/1.1/mailapp/mailapp.xsd"
-          Version="1.0.0.2">
+          Version="1.0.0.3">
   <Id>3f0ad961-e0e9-4e08-9999-cc9999999999</Id>
-  <Version>1.0.0.2</Version>
+  <Version>1.0.0.3</Version>
   <ProviderName>Custom Developer</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Scan Time (AI)"/>
@@ -86,6 +86,6 @@
           <bt:Image id="Icon.80" DefaultValue="https://mbjohnst35.github.io/legaltimetracker/icon-80.png"/>
         </bt:Images>
       </Resources>
-    </VersionOverridesV1_1>
     </VersionOverrides>
+  </VersionOverrides>
 </OfficeApp>
