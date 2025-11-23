@@ -6,8 +6,8 @@
 /* global document, Office, msal, console, Blob, URL */
 
 // --- CONFIGURATION ---
-const CLIENT_ID = "41572571-24e6-44ba-be2c-e3c2b4a0d959"; // Your new ID
-const REDIRECT_URI = "[https://mbjohnst35.github.io/taskpane.html](https://mbjohnst35.github.io/taskpane.html)"; // Must match Azure exactly
+const CLIENT_ID = "41572571-24e6-44ba-be2c-e3c2b4a0d959"; 
+const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html"; 
 
 Office.onReady((info) => {
     if (info.host === Office.HostType.Outlook) {
@@ -30,8 +30,16 @@ async function startProcess() {
         
         // 2. Get User Inputs
         const folder = document.getElementById("folderSelect").value;
-        const startDate = new Date(document.getElementById("startDate").value);
-        const endDate = new Date(document.getElementById("endDate").value);
+        // Force the dates to be treated as local time to avoid timezone offsets
+        const startInput = document.getElementById("startDate").value;
+        const endInput = document.getElementById("endDate").value;
+        
+        if (!startInput || !endInput) {
+            throw new Error("Please select both start and end dates.");
+        }
+
+        const startDate = new Date(startInput);
+        const endDate = new Date(endInput);
         const timeVal = document.getElementById("timeValue").value;
 
         // Adjust endDate to include the full day (set to 23:59:59)
@@ -70,7 +78,8 @@ async function getAccessToken() {
     const msalConfig = {
         auth: {
             clientId: CLIENT_ID,
-            authority: "[https://login.microsoftonline.com/common](https://login.microsoftonline.com/common)",
+            // FIXED: Clean URL without markdown characters
+            authority: "https://login.microsoftonline.com/common",
             redirectUri: REDIRECT_URI,
         },
         cache: { cacheLocation: "localStorage" }
@@ -87,6 +96,7 @@ async function getAccessToken() {
             const response = await msalInstance.acquireTokenSilent(tokenRequest);
             return response.accessToken;
         } else {
+            // If no accounts, just return null to trigger popup flow in catch
             throw new Error("No account");
         }
     } catch (err) {
@@ -103,9 +113,6 @@ async function fetchEmails(token, folder, start, end) {
     const endStr = end.toISOString();
 
     // Build Graph Query
-    // filter: receivedDateTime between start and end
-    // select: only fields we need to save bandwidth
-    // top: max 100 per page (we'll do one page for safety, extendable later)
     const url = `https://graph.microsoft.com/v1.0/me/mailFolders/${folder}/messages` +
         `?$filter=receivedDateTime ge ${startStr} and receivedDateTime le ${endStr}` +
         `&$select=receivedDateTime,sender,toRecipients,subject,bodyPreview` +
@@ -138,7 +145,6 @@ function processEmail(email, timeVal) {
     const recAddrs = recipients.map(r => r.emailAddress.address).join("; ");
 
     // "Smart Summary" - Using bodyPreview from Graph (first 255 chars of text)
-    // This is free and built-in. 
     let summary = email.bodyPreview || "No content";
     summary = summary.replace(/(\r\n|\n|\r)/gm, " "); // Remove newlines for CSV safety
     if (summary.length > 100) summary = summary.substring(0, 100) + "..."; // Truncate
