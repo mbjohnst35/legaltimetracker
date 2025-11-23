@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp
+          xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+          xmlns:mailappor="http://schemas.microsoft.com/office/mailappor/2.0"
+          xsi:type="MailApp">
+  <Id>b4440c94-1425-4148-bb83-112233445566</Id>
+  <Version>1.0.1.8</Version>
+  <ProviderName>Custom Developer</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Scan Time (AI)"/>
+  <Description DefaultValue="Billable time scanner."/>
+
+  <IconUrl DefaultValue="https://mbjohnst35.github.io/legaltimetracker/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://mbjohnst35.github.io/legaltimetracker/icon-32.png"/>
+  <SupportUrl DefaultValue="https://mbjohnst35.github.io/legaltimetracker/"/>
+
+  <Hosts>
+    <Host Name="Mailbox"/>
+  </Hosts>
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.1"/>
+    </Sets>
+  </Requirements>
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://mbjohnst35.github.io/legaltimetracker/taskpane.html"/>
+        <RequestedHeight>250</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <Permissions>ReadWriteMailbox</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="And">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+  </Rule>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+      <Requirements>
+        <bt:Sets DefaultMinVersion="1.1">
+          <bt:Set Name="Mailbox"/>
+        </bt:Sets>
+      </Requirements>
+      <Hosts>
+        <Host xsi:type="MailHost">
+          <DesktopFormFactor>
+            <FunctionFile resid="Taskpane.Url"/>
+            <ExtensionPoint xsi:type="MessageReadCommandSurface">
+              <OfficeTab id="TabDefault">
+                <Group id="msgReadGroup">
+                  <Label resid="GroupLabel"/>
+                  <Control xsi:type="Button" id="msgReadOpenPaneButton">
+                    <Label resid="ActionButton.Label"/>
+                    <Supertip>
+                      <Title resid="ActionButton.Label"/>
+                      <Description resid="ActionButton.ToolTip"/>
+                    </Supertip>
+                    <Icon>
+                      <bt:Image size="16" resid="Icon.32"/>
+                      <bt:Image size="32" resid="Icon.32"/>
+                      <bt:Image size="80" resid="Icon.32"/>
+                    </Icon>
+                    <Action xsi:type="ShowTaskpane">
+                      <SourceLocation resid="Taskpane.Url"/>
+                    </Action>
+                  </Control>
+                </Group>
+              </OfficeTab>
+            </ExtensionPoint>
+          </DesktopFormFactor>
+        </Host>
+      </Hosts>
+      
+      <Resources>
+        <bt:Images>
+          <bt:Image id="Icon.32" DefaultValue="https://mbjohnst35.github.io/legaltimetracker/icon-32.png"/>
+        </bt:Images>
+        <bt:Urls>
+          <bt:Url id="Taskpane.Url" DefaultValue="https://mbjohnst35.github.io/legaltimetracker/taskpane.html"/>
+        </bt:Urls>
+        <bt:ShortStrings>
+          <bt:String id="ActionButton.Label" DefaultValue="Scan Time (AI)"/>
+          <bt:String id="GroupLabel" DefaultValue="Scan Time"/>
+        </bt:ShortStrings>
+        <bt:LongStrings>
+          <bt:String id="ActionButton.ToolTip" DefaultValue="Open Scanner."/>
+        </bt:LongStrings>
+      </Resources>
+    </VersionOverrides>
+  </VersionOverrides>
+</OfficeApp>
