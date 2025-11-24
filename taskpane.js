@@ -18,7 +18,6 @@ Office.onReady((info) => {
     }
 });
 
-// Main entry point
 async function startProcess() {
     updateStatus("Initializing...", false);
     const button = document.getElementById("runButton");
@@ -30,7 +29,6 @@ async function startProcess() {
         
         // 2. Get User Inputs
         const folder = document.getElementById("folderSelect").value;
-        // Force the dates to be treated as local time to avoid timezone offsets
         const startInput = document.getElementById("startDate").value;
         const endInput = document.getElementById("endDate").value;
         
@@ -78,7 +76,6 @@ async function getAccessToken() {
     const msalConfig = {
         auth: {
             clientId: CLIENT_ID,
-            // FIXED: Clean URL without markdown characters
             authority: "https://login.microsoftonline.com/common",
             redirectUri: REDIRECT_URI,
         },
@@ -89,18 +86,15 @@ async function getAccessToken() {
     const tokenRequest = { scopes: ["Mail.Read"] };
 
     try {
-        // Try silent first
         const accounts = msalInstance.getAllAccounts();
         if (accounts.length > 0) {
             tokenRequest.account = accounts[0];
             const response = await msalInstance.acquireTokenSilent(tokenRequest);
             return response.accessToken;
         } else {
-            // If no accounts, just return null to trigger popup flow in catch
             throw new Error("No account");
         }
     } catch (err) {
-        // Fallback to popup
         const response = await msalInstance.acquireTokenPopup(tokenRequest);
         return response.accessToken;
     }
@@ -108,7 +102,6 @@ async function getAccessToken() {
 
 // --- GRAPH API ---
 async function fetchEmails(token, folder, start, end) {
-    // Format dates for OData filter (ISO 8601)
     const startStr = start.toISOString();
     const endStr = end.toISOString();
 
@@ -126,37 +119,31 @@ async function fetchEmails(token, folder, start, end) {
     if (!response.ok) throw new Error(`Graph API Error: ${response.statusText}`);
     
     const data = await response.json();
-    return data.value; // Array of email objects
+    return data.value;
 }
 
 // --- DATA PROCESSING ---
 function processEmail(email, timeVal) {
-    // Safe extraction of nested properties
     const dateObj = new Date(email.receivedDateTime);
-    const dateStr = dateObj.toLocaleDateString();
-    const timeStr = dateObj.toLocaleTimeString();
-    
     const senderName = email.sender?.emailAddress?.name || "Unknown";
     const senderAddr = email.sender?.emailAddress?.address || "Unknown";
     
-    // Map recipients to a single string (e.g., "John; Jane")
     const recipients = email.toRecipients || [];
     const recNames = recipients.map(r => r.emailAddress.name).join("; ");
     const recAddrs = recipients.map(r => r.emailAddress.address).join("; ");
 
-    // "Smart Summary" - Using bodyPreview from Graph (first 255 chars of text)
     let summary = email.bodyPreview || "No content";
-    summary = summary.replace(/(\r\n|\n|\r)/gm, " "); // Remove newlines for CSV safety
-    if (summary.length > 100) summary = summary.substring(0, 100) + "..."; // Truncate
+    summary = summary.replace(/(\r\n|\n|\r)/gm, " ");
+    if (summary.length > 100) summary = summary.substring(0, 100) + "...";
 
     return {
-        "Date": dateStr,
-        "Time": timeStr,
+        "Date": dateObj.toLocaleDateString(),
+        "Time": dateObj.toLocaleTimeString(),
         "Sender Name": senderName,
         "Sender Email": senderAddr,
         "Recipient Name": recNames,
         "Recipient Email": recAddrs,
-        "Subject": (email.subject || "").replace(/,/g, " "), // Remove commas
+        "Subject": (email.subject || "").replace(/,/g, " "),
         "Summary": summary,
         "Time Value": timeVal
     };
@@ -169,16 +156,12 @@ function generateCSV(data) {
     const headers = Object.keys(data[0]);
     const csvRows = [];
 
-    // Add Header Row
     csvRows.push(headers.join(","));
 
-    // Add Data Rows
     for (const row of data) {
         const values = headers.map(header => {
             let val = row[header] || "";
-            // Escape double quotes by doubling them
             val = String(val).replace(/"/g, '""'); 
-            // Wrap in quotes to handle commas in data
             return `"${val}"`;
         });
         csvRows.push(values.join(","));
@@ -188,7 +171,6 @@ function generateCSV(data) {
     const blob = new Blob([csvString], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     
-    // Trigger Download
     const a = document.getElementById("downloadLink");
     a.href = url;
     a.download = `Billable_Report_${new Date().getTime()}.csv`;
