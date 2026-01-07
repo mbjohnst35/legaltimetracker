@@ -130,7 +130,7 @@ async function processEmailWithAI(email, timeVal) {
         summary = await callGeminiAPI(emailText);
     } catch (e) {
         console.error("AI Error in processEmailWithAI:", e);
-        summary = "AI Error: " + (e.message || e.toString());
+        summary = "AI Logic Error: " + (e.message || JSON.stringify(e));
     }
 
     return {
@@ -156,6 +156,8 @@ async function callGeminiAPI(text) {
     };
 
     try {
+        console.log("Calling Gemini API with payload:", JSON.stringify(payload));
+        
         const response = await fetch(GEMINI_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -163,30 +165,36 @@ async function callGeminiAPI(text) {
         });
 
         if (!response.ok) {
-            let errorMsg = response.statusText;
+            let errorDetails = "";
             try {
-                const errorData = await response.json();
-                errorMsg = errorData.error?.message || response.statusText;
-                console.error("Gemini API Error Response:", errorData);
-            } catch (e) {
-                console.error("Failed to parse Gemini error response", e);
+                const errorJson = await response.json();
+                errorDetails = JSON.stringify(errorJson);
+                console.error("Gemini API Full Error:", errorJson);
+            } catch (jsonError) {
+                errorDetails = "Could not parse JSON error response.";
             }
-            // Return specific error string to be caught/displayed
-            return `Error summarizing: ${response.status} - ${errorMsg}`;
+            // Return VERY specific error
+            return `API Error ${response.status}: ${response.statusText} | Details: ${errorDetails}`;
         }
 
         const data = await response.json();
-        // Check if candidates exist and have content
-        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-             return data.candidates[0].content.parts[0].text;
-        } else {
-             console.warn("Gemini response valid but no candidates returned:", data);
-             return "No summary generated (Empty response)";
+        
+        // Debug logging
+        console.log("Gemini Success Response:", data);
+
+        // Validating structure
+        if (!data.candidates || data.candidates.length === 0) {
+            return "Error: No candidates returned from AI.";
         }
+        if (!data.candidates[0].content || !data.candidates[0].content.parts) {
+            return "Error: Invalid content structure from AI.";
+        }
+        
+        return data.candidates[0].content.parts[0].text;
 
     } catch (networkError) {
-        console.error("Gemini Network Error:", networkError);
-        return `Network Error: ${networkError.message}`;
+        console.error("Network/Fetch Error:", networkError);
+        return `Network Crash: ${networkError.name} - ${networkError.message}`;
     }
 }
 
