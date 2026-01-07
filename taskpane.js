@@ -161,7 +161,16 @@ async function callGeminiAPI(text) {
         body: JSON.stringify(payload)
     });
 
-    if (!response.ok) return "Error summarizing";
+    if (!response.ok) {
+        let errorMsg = response.statusText;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error?.message || response.statusText;
+        } catch (e) {
+            // ignore JSON parse error
+        }
+        return `Error summarizing: ${response.status} - ${errorMsg}`;
+    }
 
     const data = await response.json();
     return data.candidates?.[0]?.content?.parts?.[0]?.text || "No summary generated";
