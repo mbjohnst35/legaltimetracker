@@ -143,11 +143,18 @@ async function processEmailWithAI(email, timeVal) {
     let summary = "No content";
 
     try {
-        // Call Gemini API
-        summary = await callGeminiAPI(emailText);
+        // Call Gemini API with fallback
+        const aiSummary = await callGeminiAPI(emailText);
+        // If AI returned an error string, use simple summary instead of the error message
+        if (aiSummary.startsWith("Error") || aiSummary.startsWith("Network")) {
+             summary = (email.bodyPreview || "").substring(0, 150) + "...";
+             console.warn("AI Failed, using fallback summary. Reason:", aiSummary);
+        } else {
+             summary = aiSummary;
+        }
     } catch (e) {
         console.error("AI Error in processEmailWithAI:", e);
-        summary = "AI Logic Error: " + (e.message || JSON.stringify(e));
+        summary = (email.bodyPreview || "").substring(0, 150) + "...";
     }
 
     return {
@@ -173,45 +180,31 @@ async function callGeminiAPI(text) {
     };
 
     try {
-        console.log("Calling Gemini API with payload:", JSON.stringify(payload));
-        
+        // Set a timeout to prevent hanging forever
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
         const response = await fetch(GEMINI_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
-            let errorDetails = "";
-            try {
-                const errorJson = await response.json();
-                errorDetails = JSON.stringify(errorJson);
-                console.error("Gemini API Full Error:", errorJson);
-            } catch (jsonError) {
-                errorDetails = "Could not parse JSON error response.";
-            }
-            // Return VERY specific error
-            return `API Error ${response.status}: ${response.statusText} | Details: ${errorDetails}`;
+            return `Error: ${response.status}`;
         }
 
         const data = await response.json();
         
-        // Debug logging
-        console.log("Gemini Success Response:", data);
-
-        // Validating structure
-        if (!data.candidates || data.candidates.length === 0) {
-            return "Error: No candidates returned from AI.";
+        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts) {
+             return data.candidates[0].content.parts[0].text;
         }
-        if (!data.candidates[0].content || !data.candidates[0].content.parts) {
-            return "Error: Invalid content structure from AI.";
-        }
-        
-        return data.candidates[0].content.parts[0].text;
+        return "Error: Empty AI Response";
 
     } catch (networkError) {
-        console.error("Network/Fetch Error:", networkError);
-        return `Network Crash: ${networkError.name} - ${networkError.message}`;
+        return `Network Error: ${networkError.name}`;
     }
 }
 
@@ -240,6 +233,6 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     // Added version indicator to verify new code is running
-    el.innerText = "v5: " + message; 
+    el.innerText = "v6: " + message; 
     el.style.color = isError ? "red" : "black";
 }
