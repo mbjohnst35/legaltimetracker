@@ -10,7 +10,6 @@ const CLIENT_ID = "41572571-24e6-44ba-be2c-e3c2b4a0d959";
 const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html"; 
 
 // --- GEMINI AI CONFIGURATION ---
-// PASTE YOUR KEY HERE
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -222,6 +221,7 @@ function generateCSV(data) {
 
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
-    el.innerText = message;
+    // Added version indicator to verify new code is running
+    el.innerText = "v4: " + message; 
     el.style.color = isError ? "red" : "black";
 }
