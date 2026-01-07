@@ -171,11 +171,19 @@ async function callGeminiAPI(text) {
             } catch (e) {
                 console.error("Failed to parse Gemini error response", e);
             }
+            // Return specific error string to be caught/displayed
             return `Error summarizing: ${response.status} - ${errorMsg}`;
         }
 
         const data = await response.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || "No summary generated";
+        // Check if candidates exist and have content
+        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
+             return data.candidates[0].content.parts[0].text;
+        } else {
+             console.warn("Gemini response valid but no candidates returned:", data);
+             return "No summary generated (Empty response)";
+        }
+
     } catch (networkError) {
         console.error("Gemini Network Error:", networkError);
         return `Network Error: ${networkError.message}`;
