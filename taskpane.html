@@ -41,13 +41,24 @@
 
         <button id="runButton">Generate Report</button>
         
-        <div id="status"></div>
+        <div id="status">Initializing HTML...</div>
         
         <!-- Hidden download link -->
         <a id="downloadLink" class="hidden"></a>
     </div>
 
-    <!-- Pointing back to taskpane.js with v3 to clear cache -->
-    <script src="taskpane_v4.js" type="text/javascript"></script>
+    <!-- DIAGNOSTIC SCRIPT: Runs immediately to check if external JS loads -->
+    <script>
+        document.getElementById('status').innerText = "HTML Loaded. Waiting for taskpane.js...";
+        window.addEventListener('error', function(e) {
+            document.getElementById('status').innerText += "\nGlobal Error: " + e.message;
+            document.getElementById('status').style.color = "red";
+        });
+    </script>
+
+    <!-- CACHE BUSTER ADDED HERE -->
+    <script src="taskpane.js?v=9" type="text/javascript" 
+            onload="document.getElementById('status').innerText += '\nJS Loaded OK!'"
+            onerror="document.getElementById('status').innerText += '\nCRITICAL: JS FAILED TO LOAD'"></script>
 </body>
 </html>
