@@ -13,15 +13,32 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
+// Add event listener immediately to catch clicks even if Office.onReady is slow
+document.addEventListener("DOMContentLoaded", () => {
+    const runBtn = document.getElementById("runButton");
+    if (runBtn) {
+        runBtn.addEventListener("click", startProcess);
+        console.log("Event listener attached to runButton via DOMContentLoaded");
+    }
+});
+
 Office.onReady((info) => {
+    console.log("Office.onReady called. Host:", info.host);
     if (info.host === Office.HostType.Outlook) {
+        // Set default dates to today
         document.getElementById("startDate").valueAsDate = new Date();
         document.getElementById("endDate").valueAsDate = new Date();
-        document.getElementById("runButton").onclick = startProcess;
+        
+        // Double check event listener
+        const btn = document.getElementById("runButton");
+        if (btn) {
+             btn.onclick = startProcess; // Backup assignment
+        }
     }
 });
 
 async function startProcess() {
+    console.log("Button clicked! Starting process...");
     updateStatus("Initializing...", false);
     const button = document.getElementById("runButton");
     button.disabled = true;
@@ -222,6 +239,6 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     // Added version indicator to verify new code is running
-    el.innerText = "v4: " + message; 
+    el.innerText = "v5: " + message; 
     el.style.color = isError ? "red" : "black";
 }
