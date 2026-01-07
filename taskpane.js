@@ -129,8 +129,8 @@ async function processEmailWithAI(email, timeVal) {
         // Call Gemini API
         summary = await callGeminiAPI(emailText);
     } catch (e) {
-        console.error("AI Error:", e);
-        summary = "AI Error: " + e.message;
+        console.error("AI Error in processEmailWithAI:", e);
+        summary = "AI Error: " + (e.message || e.toString());
     }
 
     return {
@@ -155,25 +155,31 @@ async function callGeminiAPI(text) {
         }]
     };
 
-    const response = await fetch(GEMINI_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
+    try {
+        const response = await fetch(GEMINI_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
 
-    if (!response.ok) {
-        let errorMsg = response.statusText;
-        try {
-            const errorData = await response.json();
-            errorMsg = errorData.error?.message || response.statusText;
-        } catch (e) {
-            // ignore JSON parse error
+        if (!response.ok) {
+            let errorMsg = response.statusText;
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error?.message || response.statusText;
+                console.error("Gemini API Error Response:", errorData);
+            } catch (e) {
+                console.error("Failed to parse Gemini error response", e);
+            }
+            return `Error summarizing: ${response.status} - ${errorMsg}`;
         }
-        return `Error summarizing: ${response.status} - ${errorMsg}`;
-    }
 
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "No summary generated";
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "No summary generated";
+    } catch (networkError) {
+        console.error("Gemini Network Error:", networkError);
+        return `Network Error: ${networkError.message}`;
+    }
 }
 
 function generateCSV(data) {
