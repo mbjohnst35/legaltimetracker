@@ -11,6 +11,7 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 
 // --- GEMINI AI CONFIGURATION ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
+// FIXED: Added quotes around the URL string below
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // Add event listener immediately to catch clicks even if Office.onReady is slow
