@@ -21,14 +21,14 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 
 // --- GEMINI AI CONFIGURATION ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
-// FIXED: Switched to 'gemini-pro' to avoid 404 errors
+// Using the standard stable endpoint
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status) {
-        status.innerText = "System Ready (v10). Waiting for user...";
+        status.innerText = "System Ready (v13 - No Fallback). Waiting for user...";
         status.style.color = "blue";
     }
 }, 500);
@@ -155,7 +155,6 @@ async function fetchEmails(token, folder, start, end) {
     return data.value;
 }
 
-// --- NEW AI FUNCTION ---
 async function processEmailWithAI(email, timeVal) {
     const dateObj = new Date(email.receivedDateTime);
     
@@ -177,12 +176,14 @@ async function processEmailWithAI(email, timeVal) {
     let summary = "No content";
 
     try {
+        // Direct call, NO fallback. If this fails, the error goes to CSV.
         summary = await callGeminiAPI(emailText);
     } catch (e) {
         console.error("AI Error:", e);
         summary = "AI Error: " + e.message;
     }
 
+    // Clean CSV output
     summary = summary.replace(/"/g, "'");
 
     return {
@@ -217,6 +218,7 @@ async function callGeminiAPI(text) {
         });
 
         if (!response.ok) {
+            // Return specific status code to CSV
             return "Error summarizing: " + response.status + " - " + response.statusText;
         }
 
@@ -228,7 +230,7 @@ async function callGeminiAPI(text) {
             data.candidates[0].content.parts.length > 0) {
              return data.candidates[0].content.parts[0].text;
         }
-        return "No summary generated";
+        return "No summary generated (Empty response)";
 
     } catch (networkError) {
         console.error("Gemini Network Error:", networkError);
@@ -262,7 +264,8 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v10: " + message; 
+        // Updated version indicator
+        el.innerText = "v13: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
