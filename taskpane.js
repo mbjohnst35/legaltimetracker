@@ -3,9 +3,6 @@
  * See LICENSE in the project root for license information.
  */
 
-// IMPORT GOOGLE AI SDK
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 /* global document, Office, msal, console, Blob, URL, window */
 
 // 1. GLOBAL ERROR HANDLER
@@ -22,16 +19,18 @@ window.onerror = function(message, source, lineno, colno, error) {
 const CLIENT_ID = "41572571-24e6-44ba-be2c-e3c2b4a0d959"; 
 const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html"; 
 
-// --- GEMINI AI CONFIGURATION (SDK MODE) ---
+// --- GEMINI AI CONFIGURATION ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro"});
+
+// STRATEGY: Use the specific versioned endpoint often required for free tier keys
+// Note the explicit version '001' which resolves ambiguity
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=" + GEMINI_API_KEY;
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status) {
-        status.innerText = "System Ready (v16 - SDK Mode). Waiting for user...";
+        status.innerText = "System Ready (v17 - Diagnostic). Waiting for user...";
         status.style.color = "blue";
     }
 }, 500);
@@ -63,7 +62,6 @@ Office.onReady((info) => {
 });
 
 async function startProcess() {
-    console.log("Button clicked! Starting process...");
     updateStatus("Initializing...", false);
     const button = document.getElementById("runButton");
     button.disabled = true;
@@ -179,14 +177,9 @@ async function processEmailWithAI(email, timeVal) {
     let summary = "No content";
 
     try {
-        // USE SDK CALL
-        const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + emailText;
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        summary = response.text();
-        
+        summary = await callGeminiAPI(emailText);
     } catch (e) {
-        console.error("AI SDK Error:", e);
+        console.error("AI Error:", e);
         summary = "AI Error: " + e.message;
     }
 
@@ -203,6 +196,46 @@ async function processEmailWithAI(email, timeVal) {
         "Summary": summary,
         "Time Value": timeVal
     };
+}
+
+async function callGeminiAPI(text) {
+    const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + text;
+    
+    const payload = {
+        contents: [{
+            parts: [{ text: prompt }]
+        }]
+    };
+
+    try {
+        const response = await fetch(GEMINI_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            // DIAGNOSTIC CHANGE: Get the full JSON error body to see WHY it failed
+            const errorBody = await response.text(); 
+            console.error("Gemini Error Body:", errorBody);
+            // Return the full error body to the CSV so you can read it
+            return "Error " + response.status + ": " + errorBody.substring(0, 100); 
+        }
+
+        const data = await response.json();
+        
+        if (data.candidates && data.candidates.length > 0 && 
+            data.candidates[0].content && 
+            data.candidates[0].content.parts && 
+            data.candidates[0].content.parts.length > 0) {
+             return data.candidates[0].content.parts[0].text;
+        }
+        return "No summary generated";
+
+    } catch (networkError) {
+        console.error("Gemini Network Error:", networkError);
+        return "Network Error: " + networkError.message;
+    }
 }
 
 function generateCSV(data) {
@@ -231,7 +264,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v16: " + message; 
+        el.innerText = "v17: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
