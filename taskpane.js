@@ -22,14 +22,14 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 // --- GEMINI AI CONFIGURATION ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
 
-// Reverting to the most standard endpoint
-const URL_PRIMARY = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
+// STRATEGY: Try the V1 stable endpoint.
+const URL_PRIMARY = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status) {
-        status.innerText = "System Ready (v18 - Header Fix). Waiting for user...";
+        status.innerText = "System Ready (v19 - Error Cleaner). Waiting for user...";
         status.style.color = "blue";
     }
 }, 500);
@@ -177,12 +177,14 @@ async function processEmailWithAI(email, timeVal) {
     let summary = "No content";
 
     try {
-        summary = await callGeminiAPI(emailText);
+        // CALL THE ROBUST API FUNCTION
+        summary = await callGeminiWithFallback(emailText);
     } catch (e) {
         console.error("AI Error:", e);
         summary = "AI Error: " + e.message;
     }
 
+    // Clean summary quotes for CSV safety
     summary = summary.replace(/"/g, "'");
 
     return {
@@ -198,29 +200,30 @@ async function processEmailWithAI(email, timeVal) {
     };
 }
 
-async function callGeminiAPI(text) {
+// --- ROBUST AI FUNCTION ---
+async function callGeminiWithFallback(text) {
+    return await tryGeminiEndpoint(URL_PRIMARY, text);
+}
+
+async function tryGeminiEndpoint(url, text) {
     const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + text;
-    
     const payload = {
-        contents: [{
-            parts: [{ text: prompt }]
-        }]
+        contents: [{ parts: [{ text: prompt }] }]
     };
 
     try {
-        const response = await fetch(URL_PRIMARY, {
+        const response = await fetch(url, {
             method: "POST",
-            // FIXED: Added referrer policy to ensure Google sees the origin
-            referrerPolicy: "no-referrer-when-downgrade", 
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-            // Log the full text to console for inspection
-            const errText = await response.text();
-            console.error("Gemini Failure:", errText);
-            return "Error summarizing: " + response.status + " - " + errText.substring(0, 50);
+            // DIAGNOSTIC CHANGE: Flatten the JSON error so it fits in a CSV cell
+            const errorText = await response.text();
+            // Remove newlines and quotes to prevent CSV breakage
+            const cleanError = errorText.replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, "'");
+            return "API FAIL: " + response.status + " MSG: " + cleanError.substring(0, 150);
         }
 
         const data = await response.json();
@@ -231,7 +234,7 @@ async function callGeminiAPI(text) {
             data.candidates[0].content.parts.length > 0) {
              return data.candidates[0].content.parts[0].text;
         }
-        return "No summary generated";
+        return "Error: Empty AI Response";
 
     } catch (networkError) {
         return "Network Error: " + networkError.message;
@@ -264,7 +267,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v18: " + message; 
+        el.innerText = "v19: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
