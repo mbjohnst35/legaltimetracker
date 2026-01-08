@@ -27,8 +27,9 @@ let ACTIVE_GEMINI_URL = ""; // Will be set dynamically
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status) {
-        status.innerText = "v20 Loaded. Checking API...";
-        // If this text doesn't appear, the JS isn't loading.
+        // If this text appears, v20 loaded successfully
+        status.innerText = "System Ready (v20 - Auto-Discover). Waiting for user...";
+        status.style.color = "blue";
     }
 }, 500);
 
@@ -52,7 +53,6 @@ Office.onReady((info) => {
 });
 
 // --- NEW: DYNAMIC MODEL DISCOVERY ---
-// This asks Google which model works for your key
 async function discoverGeminiModel() {
     const status = document.getElementById("status");
     try {
@@ -66,7 +66,6 @@ async function discoverGeminiModel() {
             if (!chosenModel) chosenModel = data.models.find(m => m.name.includes("gemini-pro"));
             
             if (chosenModel) {
-                // Construct the generateContent URL from the model name
                 // Model name comes like "models/gemini-pro", so we just append :generateContent
                 ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/" + chosenModel.name + ":generateContent?key=" + GEMINI_API_KEY;
                 status.innerText = "System Ready (v20). AI Connected: " + chosenModel.displayName;
@@ -82,7 +81,7 @@ async function discoverGeminiModel() {
         console.error(e);
         status.innerText = "v20 Connection Error: Could not reach Google. " + e.message;
         status.style.color = "red";
-        // Fallback hardcoded URL if discovery fails
+        // Fallback hardcoded URL
         ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
     }
 }
@@ -145,6 +144,10 @@ async function getAccessToken() {
         },
         cache: { cacheLocation: "localStorage" }
     };
+
+    if (typeof msal === 'undefined') {
+        throw new Error("MSAL library not loaded. Check internet connection.");
+    }
 
     const msalInstance = new msal.PublicClientApplication(msalConfig);
     const tokenRequest = { scopes: ["Mail.Read"] };
@@ -238,7 +241,6 @@ async function callGeminiAPI(text) {
 
         if (!response.ok) {
             const errorText = await response.text();
-            // Clean error for CSV
             const cleanError = errorText.replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, "'").substring(0, 150);
             return "API FAIL: " + response.status + " REASON: " + cleanError;
         }
