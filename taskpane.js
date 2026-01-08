@@ -22,15 +22,14 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 // --- GEMINI AI CONFIGURATION ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
 
-// STRATEGY: Use the specific versioned endpoint often required for free tier keys
-// Note the explicit version '001' which resolves ambiguity
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=" + GEMINI_API_KEY;
+// Reverting to the most standard endpoint
+const URL_PRIMARY = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status) {
-        status.innerText = "System Ready (v17 - Diagnostic). Waiting for user...";
+        status.innerText = "System Ready (v18 - Header Fix). Waiting for user...";
         status.style.color = "blue";
     }
 }, 500);
@@ -62,6 +61,7 @@ Office.onReady((info) => {
 });
 
 async function startProcess() {
+    console.log("Button clicked! Starting process...");
     updateStatus("Initializing...", false);
     const button = document.getElementById("runButton");
     button.disabled = true;
@@ -208,18 +208,19 @@ async function callGeminiAPI(text) {
     };
 
     try {
-        const response = await fetch(GEMINI_URL, {
+        const response = await fetch(URL_PRIMARY, {
             method: "POST",
+            // FIXED: Added referrer policy to ensure Google sees the origin
+            referrerPolicy: "no-referrer-when-downgrade", 
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-            // DIAGNOSTIC CHANGE: Get the full JSON error body to see WHY it failed
-            const errorBody = await response.text(); 
-            console.error("Gemini Error Body:", errorBody);
-            // Return the full error body to the CSV so you can read it
-            return "Error " + response.status + ": " + errorBody.substring(0, 100); 
+            // Log the full text to console for inspection
+            const errText = await response.text();
+            console.error("Gemini Failure:", errText);
+            return "Error summarizing: " + response.status + " - " + errText.substring(0, 50);
         }
 
         const data = await response.json();
@@ -233,7 +234,6 @@ async function callGeminiAPI(text) {
         return "No summary generated";
 
     } catch (networkError) {
-        console.error("Gemini Network Error:", networkError);
         return "Network Error: " + networkError.message;
     }
 }
@@ -264,7 +264,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v17: " + message; 
+        el.innerText = "v18: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
