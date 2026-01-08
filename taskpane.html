@@ -47,18 +47,14 @@
         <a id="downloadLink" class="hidden"></a>
     </div>
 
-    <!-- DIAGNOSTIC SCRIPT: Runs immediately to check if external JS loads -->
+    <!-- DIAGNOSTIC SCRIPT -->
     <script>
-        document.getElementById('status').innerText = "HTML Loaded. Waiting for taskpane.js...";
-        window.addEventListener('error', function(e) {
-            document.getElementById('status').innerText += "\nGlobal Error: " + e.message;
-            document.getElementById('status').style.color = "red";
-        });
+        document.getElementById('status').innerText = "HTML Loaded. Fetching JS from absolute URL...";
     </script>
 
-    <!-- CACHE BUSTER ADDED HERE -->
-    <script src="taskpane.js?v=10" type="text/javascript" 
-            onload="document.getElementById('status').innerText += '\nJS Loaded OK!'"
-            onerror="document.getElementById('status').innerText += '\nCRITICAL: JS FAILED TO LOAD'"></script>
+    <!-- FIXED: Using Absolute URL to ensure we find the file -->
+    <script src="https://mbjohnst35.github.io/legaltimetracker/taskpane.js?v=11" type="text/javascript" 
+            onload="document.getElementById('status').innerText += '\nJS Loaded Successfully!'"
+            onerror="document.getElementById('status').innerText += '\nCRITICAL: Still cannot find JS file at absolute URL.'"></script>
 </body>
 </html>
