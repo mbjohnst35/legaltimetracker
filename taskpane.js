@@ -3,6 +3,9 @@
  * See LICENSE in the project root for license information.
  */
 
+// IMPORT GOOGLE AI SDK
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 /* global document, Office, msal, console, Blob, URL, window */
 
 // 1. GLOBAL ERROR HANDLER
@@ -19,18 +22,16 @@ window.onerror = function(message, source, lineno, colno, error) {
 const CLIENT_ID = "41572571-24e6-44ba-be2c-e3c2b4a0d959"; 
 const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html"; 
 
-// --- GEMINI AI CONFIGURATION ---
+// --- GEMINI AI CONFIGURATION (SDK MODE) ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
-
-// STRATEGY: Define two endpoints. If one 404s, we try the other.
-const URL_PRIMARY = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
-const URL_BACKUP = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-pro"});
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status) {
-        status.innerText = "System Ready (v15 - Dual Model). Waiting for user...";
+        status.innerText = "System Ready (v16 - SDK Mode). Waiting for user...";
         status.style.color = "blue";
     }
 }, 500);
@@ -178,10 +179,14 @@ async function processEmailWithAI(email, timeVal) {
     let summary = "No content";
 
     try {
-        // CALL THE ROBUST API FUNCTION
-        summary = await callGeminiWithFallback(emailText);
+        // USE SDK CALL
+        const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + emailText;
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        summary = response.text();
+        
     } catch (e) {
-        console.error("AI Error:", e);
+        console.error("AI SDK Error:", e);
         summary = "AI Error: " + e.message;
     }
 
@@ -198,52 +203,6 @@ async function processEmailWithAI(email, timeVal) {
         "Summary": summary,
         "Time Value": timeVal
     };
-}
-
-// --- ROBUST AI FUNCTION ---
-async function callGeminiWithFallback(text) {
-    // 1. Try Primary Model (1.5 Flash)
-    let result = await tryGeminiEndpoint(URL_PRIMARY, text);
-    
-    // 2. If 404 or Error, Try Backup Model (Pro)
-    if (result.startsWith("Error")) {
-        console.warn("Primary model failed: " + result + ". Trying backup...");
-        result = await tryGeminiEndpoint(URL_BACKUP, text);
-    }
-    
-    return result;
-}
-
-async function tryGeminiEndpoint(url, text) {
-    const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + text;
-    const payload = {
-        contents: [{ parts: [{ text: prompt }] }]
-    };
-
-    try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            return "Error: " + response.status + " - " + response.statusText;
-        }
-
-        const data = await response.json();
-        
-        if (data.candidates && data.candidates.length > 0 && 
-            data.candidates[0].content && 
-            data.candidates[0].content.parts && 
-            data.candidates[0].content.parts.length > 0) {
-             return data.candidates[0].content.parts[0].text;
-        }
-        return "Error: Empty AI Response";
-
-    } catch (networkError) {
-        return "Network Error: " + networkError.message;
-    }
 }
 
 function generateCSV(data) {
@@ -272,7 +231,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v15: " + message; 
+        el.innerText = "v16: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
