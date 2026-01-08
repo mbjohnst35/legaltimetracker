@@ -5,7 +5,7 @@
 
 /* global document, Office, msal, console, Blob, URL, window */
 
-// 1. GLOBAL ERROR HANDLER (Catches syntax/load errors immediately)
+// 1. GLOBAL ERROR HANDLER
 window.onerror = function(message, source, lineno, colno, error) {
     const status = document.getElementById("status");
     if (status) {
@@ -21,15 +21,14 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 
 // --- GEMINI AI CONFIGURATION ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
-// Changed to standard string concatenation for maximum compatibility
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
+// FIXED: Switched to 'gemini-pro' to avoid 404 errors
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
 
 // 2. IMMEDIATE VISUAL CHECK
-// This runs as soon as the file loads. If you don't see this, the file isn't loading.
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status) {
-        status.innerText = "System Ready (v9). Waiting for user...";
+        status.innerText = "System Ready (v10). Waiting for user...";
         status.style.color = "blue";
     }
 }, 500);
@@ -38,7 +37,7 @@ setTimeout(() => {
 document.addEventListener("DOMContentLoaded", () => {
     const runBtn = document.getElementById("runButton");
     if (runBtn) {
-        runBtn.onclick = startProcess; // Direct assignment is robust
+        runBtn.onclick = startProcess; 
         console.log("Event listener attached to runButton via DOMContentLoaded");
     }
 });
@@ -90,10 +89,8 @@ async function startProcess() {
 
         updateStatus("Processing " + emails.length + " emails with AI...", false);
 
-        // Process emails
         const reportData = [];
         for (const email of emails) {
-            // Simplified status update
             const sName = (email.sender && email.sender.emailAddress) ? email.sender.emailAddress.name : "Unknown";
             updateStatus("Summarizing email from " + sName + "...", false);
             
@@ -122,7 +119,6 @@ async function getAccessToken() {
         cache: { cacheLocation: "localStorage" }
     };
 
-    // Check if MSAL is loaded
     if (typeof msal === 'undefined') {
         throw new Error("MSAL library not loaded. Check internet connection.");
     }
@@ -181,14 +177,12 @@ async function processEmailWithAI(email, timeVal) {
     let summary = "No content";
 
     try {
-        // Call Gemini API
         summary = await callGeminiAPI(emailText);
     } catch (e) {
         console.error("AI Error:", e);
         summary = "AI Error: " + e.message;
     }
 
-    // Clean summary quotes
     summary = summary.replace(/"/g, "'");
 
     return {
@@ -268,7 +262,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v9: " + message; 
+        el.innerText = "v10: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
