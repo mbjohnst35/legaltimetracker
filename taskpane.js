@@ -21,14 +21,16 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 
 // --- GEMINI AI CONFIGURATION ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
-// Using the standard stable endpoint
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
+
+// STRATEGY: Define two endpoints. If one 404s, we try the other.
+const URL_PRIMARY = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
+const URL_BACKUP = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status) {
-        status.innerText = "System Ready (v13 - No Fallback). Waiting for user...";
+        status.innerText = "System Ready (v15 - Dual Model). Waiting for user...";
         status.style.color = "blue";
     }
 }, 500);
@@ -176,14 +178,13 @@ async function processEmailWithAI(email, timeVal) {
     let summary = "No content";
 
     try {
-        // Direct call, NO fallback. If this fails, the error goes to CSV.
-        summary = await callGeminiAPI(emailText);
+        // CALL THE ROBUST API FUNCTION
+        summary = await callGeminiWithFallback(emailText);
     } catch (e) {
         console.error("AI Error:", e);
         summary = "AI Error: " + e.message;
     }
 
-    // Clean CSV output
     summary = summary.replace(/"/g, "'");
 
     return {
@@ -199,27 +200,35 @@ async function processEmailWithAI(email, timeVal) {
     };
 }
 
-async function callGeminiAPI(text) {
-    const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + text;
+// --- ROBUST AI FUNCTION ---
+async function callGeminiWithFallback(text) {
+    // 1. Try Primary Model (1.5 Flash)
+    let result = await tryGeminiEndpoint(URL_PRIMARY, text);
     
+    // 2. If 404 or Error, Try Backup Model (Pro)
+    if (result.startsWith("Error")) {
+        console.warn("Primary model failed: " + result + ". Trying backup...");
+        result = await tryGeminiEndpoint(URL_BACKUP, text);
+    }
+    
+    return result;
+}
+
+async function tryGeminiEndpoint(url, text) {
+    const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + text;
     const payload = {
-        contents: [{
-            parts: [{ text: prompt }]
-        }]
+        contents: [{ parts: [{ text: prompt }] }]
     };
 
     try {
-        console.log("Calling Gemini...");
-        
-        const response = await fetch(GEMINI_URL, {
+        const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-            // Return specific status code to CSV
-            return "Error summarizing: " + response.status + " - " + response.statusText;
+            return "Error: " + response.status + " - " + response.statusText;
         }
 
         const data = await response.json();
@@ -230,10 +239,9 @@ async function callGeminiAPI(text) {
             data.candidates[0].content.parts.length > 0) {
              return data.candidates[0].content.parts[0].text;
         }
-        return "No summary generated (Empty response)";
+        return "Error: Empty AI Response";
 
     } catch (networkError) {
-        console.error("Gemini Network Error:", networkError);
         return "Network Error: " + networkError.message;
     }
 }
@@ -264,8 +272,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        // Updated version indicator
-        el.innerText = "v13: " + message; 
+        el.innerText = "v15: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }

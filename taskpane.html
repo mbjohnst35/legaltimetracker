@@ -49,11 +49,11 @@
 
     <!-- DIAGNOSTIC SCRIPT -->
     <script>
-        document.getElementById('status').innerText = "HTML Loaded. Fetching JS...";
+        document.getElementById('status').innerText = "HTML Loaded. Fetching JS from absolute URL...";
     </script>
 
-    <!-- FIXED: Points to taskpane.js with v13 cache buster -->
-    <script src="https://mbjohnst35.github.io/legaltimetracker/taskpane.js?v=13" type="text/javascript" 
+    <!-- FIXED: Points to taskpane.js with v15 cache buster -->
+    <script src="https://mbjohnst35.github.io/legaltimetracker/taskpane.js?v=15" type="text/javascript" 
             onload="document.getElementById('status').innerText += '\nJS Loaded Successfully!'"
             onerror="document.getElementById('status').innerText += '\nCRITICAL: JS FAILED TO LOAD'"></script>
 </body>
