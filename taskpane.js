@@ -16,7 +16,7 @@ window.onerror = function(message, source, lineno, colno, error) {
 };
 
 // --- CONFIGURATION ---
-const CLIENT_ID = "41572571-24e6-44ba-be2c-e3c2b4a0d959"; 
+const CLIENT_ID = "AIzaSyDmKO808anbshOud4t51XY2ueOxDtN9IQc"; 
 const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html"; 
 
 // --- GEMINI AI CONFIGURATION ---
