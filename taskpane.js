@@ -20,15 +20,16 @@ const CLIENT_ID = "41572571-24e6-44ba-be2c-e3c2b4a0d959";
 const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html"; 
 
 // --- GEMINI AI CONFIGURATION ---
-// UPDATED KEY
+// YOUR EXISTING KEY (Now upgraded via billing)
 const GEMINI_API_KEY = "AIzaSyAPcZ6DzH17KAO9JzC_yB4hDxr_UbTcS9Q"; 
+
 let ACTIVE_GEMINI_URL = ""; 
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status && status.innerText.includes("Loading")) {
-        status.innerText = "v22 Loaded. Starting Discovery...";
+        status.innerText = "v25 Loaded. Starting Discovery...";
     }
 }, 500);
 
@@ -37,7 +38,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const runBtn = document.getElementById("runButton");
     if (runBtn) runBtn.onclick = startProcess;
     
-    // Start discovery with a safety timeout
     discoverGeminiModel();
 });
 
@@ -50,16 +50,13 @@ Office.onReady((info) => {
     }
 });
 
-// --- NEW: ROBUST MODEL DISCOVERY ---
+// --- ROBUST MODEL DISCOVERY ---
 async function discoverGeminiModel() {
     const status = document.getElementById("status");
     const listUrl = "https://generativelanguage.googleapis.com/v1beta/models?key=" + GEMINI_API_KEY;
-    
-    // Default Fallback
-    const fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
+    const fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
 
     try {
-        // Set a 3-second timeout for discovery
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
 
@@ -70,23 +67,21 @@ async function discoverGeminiModel() {
 
         if (data.models) {
             let chosenModel = data.models.find(m => m.name.includes("gemini-1.5-flash"));
-            if (!chosenModel) chosenModel = data.models.find(m => m.name.includes("gemini-pro"));
             
             if (chosenModel) {
                 ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/" + chosenModel.name + ":generateContent?key=" + GEMINI_API_KEY;
-                status.innerText = "System Ready (v22). Model Found: " + chosenModel.displayName;
+                status.innerText = "System Ready (v25 - Turbo Mode). Model: " + chosenModel.displayName;
                 status.style.color = "green";
                 return;
             }
         }
-        throw new Error("No compatible models found in list.");
+        throw new Error("No compatible models found.");
 
     } catch (e) {
-        console.warn("Discovery failed/timed out. Using fallback.", e);
-        // Force fallback so the user isn't stuck
+        console.warn("Discovery failed. Using fallback.", e);
         ACTIVE_GEMINI_URL = fallbackUrl;
-        status.innerText = "System Ready (v22 - Fallback Mode).";
-        status.style.color = "blue"; // Blue means "Ready but using fallback"
+        status.innerText = "System Ready (v25 - Fallback Mode).";
+        status.style.color = "blue"; 
     }
 }
 
@@ -117,19 +112,28 @@ async function startProcess() {
             return;
         }
 
-        updateStatus("Processing " + emails.length + " emails with AI...", false);
+        updateStatus("Found " + emails.length + " emails. Starting Turbo Processing...", false);
 
+        // --- BATCH LOGIC (NO DELAY) ---
         const reportData = [];
-        for (const email of emails) {
-            const sName = (email.sender && email.sender.emailAddress) ? email.sender.emailAddress.name : "Unknown";
-            updateStatus("Summarizing email from " + sName + "...", false);
+        const BATCH_SIZE = 10; // Increased batch size for speed
+        
+        // We will fire all batches almost simultaneously
+        for (let i = 0; i < emails.length; i += BATCH_SIZE) {
+            const chunk = emails.slice(i, i + BATCH_SIZE);
+            const currentCount = Math.min(i + BATCH_SIZE, emails.length);
             
-            const processedRow = await processEmailWithAI(email, timeVal);
-            reportData.push(processedRow);
+            updateStatus("Processing batch " + currentCount + "/" + emails.length + "...", false);
+            
+            // Send chunk to AI
+            const summarizedChunk = await processBatchWithAI(chunk, timeVal);
+            reportData.push(...summarizedChunk);
+
+            // REMOVED: await delay(4000); -> No waiting needed for paid keys!
         }
 
         generateCSV(reportData);
-        updateStatus("Success! AI Report generated for " + emails.length + " emails.", true);
+        updateStatus("Success! Report generated for " + emails.length + " emails.", true);
 
     } catch (error) {
         updateStatus("Error: " + error.message, true);
@@ -137,6 +141,70 @@ async function startProcess() {
     } finally {
         button.disabled = false;
     }
+}
+
+// --- BATCH AI FUNCTION ---
+async function processBatchWithAI(emailBatch, timeVal) {
+    let prompt = "Summarize each of the following emails in exactly one concise sentence for a legal billing report. Return the result as a JSON object where the key is the EmailID and the value is the summary.\n\n";
+    
+    emailBatch.forEach((email, index) => {
+        const subject = (email.subject || "No Subject").replace(/(\r\n|\n|\r)/gm, " ");
+        const body = (email.bodyPreview || "No Content").replace(/(\r\n|\n|\r)/gm, " ");
+        prompt += `EmailID "${index}":\nSubject: ${subject}\nBody: ${body}\n\n`;
+    });
+
+    let summaries = {};
+
+    try {
+        if (!ACTIVE_GEMINI_URL) throw new Error("AI not initialized");
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }]
+        };
+
+        const response = await fetch(ACTIVE_GEMINI_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`API Error ${response.status}`);
+        }
+
+        const data = await response.json();
+        const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        const cleanJson = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
+        summaries = JSON.parse(cleanJson);
+
+    } catch (e) {
+        console.error("Batch Failed:", e);
+        emailBatch.forEach((_, index) => {
+            summaries[index] = "Error: " + e.message;
+        });
+    }
+
+    return emailBatch.map((email, index) => {
+        const dateObj = new Date(email.receivedDateTime);
+        const senderName = email.sender?.emailAddress?.name || "Unknown";
+        const senderAddr = email.sender?.emailAddress?.address || "Unknown";
+        const recipients = (email.toRecipients || []).map(r => r.emailAddress.name).join("; ");
+        
+        let summary = summaries[index.toString()] || "Error: Summary missing";
+        summary = summary.replace(/"/g, "'"); 
+
+        return {
+            "Date": dateObj.toLocaleDateString(),
+            "Time": dateObj.toLocaleTimeString(),
+            "Sender Name": senderName,
+            "Sender Email": senderAddr,
+            "Recipient Name": recipients,
+            "Subject": (email.subject || "").replace(/,/g, " "),
+            "Summary": summary,
+            "Time Value": timeVal
+        };
+    });
 }
 
 async function getAccessToken() {
@@ -149,9 +217,7 @@ async function getAccessToken() {
         cache: { cacheLocation: "localStorage" }
     };
 
-    if (typeof msal === 'undefined') {
-        throw new Error("MSAL library not loaded. Check internet connection.");
-    }
+    if (typeof msal === 'undefined') throw new Error("MSAL not loaded");
 
     const msalInstance = new msal.PublicClientApplication(msalConfig);
     const tokenRequest = { scopes: ["Mail.Read"] };
@@ -185,86 +251,6 @@ async function fetchEmails(token, folder, start, end) {
     return data.value;
 }
 
-async function processEmailWithAI(email, timeVal) {
-    const dateObj = new Date(email.receivedDateTime);
-    
-    let senderName = "Unknown";
-    let senderAddr = "Unknown";
-    if (email.sender && email.sender.emailAddress) {
-        senderName = email.sender.emailAddress.name || "Unknown";
-        senderAddr = email.sender.emailAddress.address || "Unknown";
-    }
-
-    const recipients = email.toRecipients || [];
-    const recNames = recipients.map(function(r) { return r.emailAddress.name; }).join("; ");
-    const recAddrs = recipients.map(function(r) { return r.emailAddress.address; }).join("; ");
-    
-    const subjectSafe = (email.subject || "").replace(/,/g, " ");
-    const bodyPreviewSafe = (email.bodyPreview || "");
-
-    const emailText = "Subject: " + subjectSafe + "\nBody: " + bodyPreviewSafe;
-    let summary = "No content";
-
-    try {
-        summary = await callGeminiAPI(emailText);
-    } catch (e) {
-        console.error("AI Error:", e);
-        summary = "AI Error: " + e.message;
-    }
-
-    summary = summary.replace(/"/g, "'");
-
-    return {
-        "Date": dateObj.toLocaleDateString(),
-        "Time": dateObj.toLocaleTimeString(),
-        "Sender Name": senderName,
-        "Sender Email": senderAddr,
-        "Recipient Name": recNames,
-        "Recipient Email": recAddrs,
-        "Subject": subjectSafe,
-        "Summary": summary,
-        "Time Value": timeVal
-    };
-}
-
-async function callGeminiAPI(text) {
-    // If discovery failed, use fallback immediately
-    if (!ACTIVE_GEMINI_URL) {
-         return "Error: AI not initialized";
-    }
-
-    const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + text;
-    
-    const payload = {
-        contents: [{
-            parts: [{ text: prompt }]
-        }]
-    };
-
-    try {
-        const response = await fetch(ACTIVE_GEMINI_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            const cleanError = errorText.replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, "'").substring(0, 150);
-            return "API FAIL: " + response.status + " REASON: " + cleanError;
-        }
-
-        const data = await response.json();
-        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content) {
-             return data.candidates[0].content.parts[0].text;
-        }
-        return "No summary generated";
-
-    } catch (networkError) {
-        return "Network Error: " + networkError.message;
-    }
-}
-
 function generateCSV(data) {
     if (data.length === 0) return;
     const headers = Object.keys(data[0]);
@@ -291,7 +277,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v22: " + message; 
+        el.innerText = "v25: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
