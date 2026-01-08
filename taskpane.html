@@ -15,7 +15,18 @@
         button { width: 100%; background-color: #0078d4; color: white; padding: 12px; margin-top: 20px; border: none; cursor: pointer; border-radius: 3px; font-weight: bold; }
         button:hover { background-color: #106ebe; }
         button:disabled { background-color: #ccc; cursor: default; }
-        #status { margin-top: 15px; font-size: 12px; color: #333; white-space: pre-wrap; }
+        
+        /* NEW VISUAL INDICATOR: YELLOW STATUS BOX */
+        #status { 
+            margin-top: 15px; 
+            font-size: 12px; 
+            color: #333; 
+            white-space: pre-wrap;
+            background-color: #ffffcc; 
+            padding: 10px;
+            border: 1px solid #e6e600;
+            border-radius: 4px;
+        }
         .hidden { display: none; }
     </style>
 </head>
@@ -41,7 +52,8 @@
 
         <button id="runButton">Generate Report</button>
         
-        <div id="status">Initializing HTML...</div>
+        <!-- Default text helps diagnose load issues -->
+        <div id="status">Loading v20... (If this stays here, JS failed)</div>
         
         <!-- Hidden download link -->
         <a id="downloadLink" class="hidden"></a>
@@ -49,11 +61,11 @@
 
     <!-- DIAGNOSTIC SCRIPT -->
     <script>
-        document.getElementById('status').innerText = "HTML Loaded. Fetching JS from absolute URL...";
+        document.getElementById('status').innerText = "HTML Loaded. Fetching JS v20...";
     </script>
 
-    <!-- FIXED: Points to taskpane.js with v19 cache buster -->
-    <script src="https://mbjohnst35.github.io/legaltimetracker/taskpane.js?v=19" type="text/javascript" 
+    <!-- FIXED: Points to taskpane.js with v20 cache buster -->
+    <script src="https://mbjohnst35.github.io/legaltimetracker/taskpane.js?v=20" type="text/javascript" 
             onload="document.getElementById('status').innerText += '\nJS Loaded Successfully!'"
             onerror="document.getElementById('status').innerText += '\nCRITICAL: JS FAILED TO LOAD'"></script>
 </body>

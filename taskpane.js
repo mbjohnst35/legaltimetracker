@@ -21,16 +21,14 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 
 // --- GEMINI AI CONFIGURATION ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
-
-// STRATEGY: Try the V1 stable endpoint.
-const URL_PRIMARY = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
+let ACTIVE_GEMINI_URL = ""; // Will be set dynamically
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status) {
-        status.innerText = "System Ready (v19 - Error Cleaner). Waiting for user...";
-        status.style.color = "blue";
+        status.innerText = "v20 Loaded. Checking API...";
+        // If this text doesn't appear, the JS isn't loading.
     }
 }, 500);
 
@@ -39,29 +37,57 @@ document.addEventListener("DOMContentLoaded", () => {
     const runBtn = document.getElementById("runButton");
     if (runBtn) {
         runBtn.onclick = startProcess; 
-        console.log("Event listener attached to runButton via DOMContentLoaded");
     }
+    // Auto-discover the correct model on load
+    discoverGeminiModel();
 });
 
 Office.onReady((info) => {
-    console.log("Office.onReady called. Host:", info.host);
     if (info.host === Office.HostType.Outlook) {
-        const startEl = document.getElementById("startDate");
-        const endEl = document.getElementById("endDate");
-        if (startEl && endEl) {
-            startEl.valueAsDate = new Date();
-            endEl.valueAsDate = new Date();
-        }
-        
+        document.getElementById("startDate").valueAsDate = new Date();
+        document.getElementById("endDate").valueAsDate = new Date();
         const btn = document.getElementById("runButton");
-        if (btn) {
-             btn.onclick = startProcess; 
-        }
+        if (btn) btn.onclick = startProcess; 
     }
 });
 
+// --- NEW: DYNAMIC MODEL DISCOVERY ---
+// This asks Google which model works for your key
+async function discoverGeminiModel() {
+    const status = document.getElementById("status");
+    try {
+        const listUrl = "https://generativelanguage.googleapis.com/v1beta/models?key=" + GEMINI_API_KEY;
+        const response = await fetch(listUrl);
+        const data = await response.json();
+
+        if (data.models) {
+            // Prefer gemini-1.5-flash, fallback to gemini-pro
+            let chosenModel = data.models.find(m => m.name.includes("gemini-1.5-flash"));
+            if (!chosenModel) chosenModel = data.models.find(m => m.name.includes("gemini-pro"));
+            
+            if (chosenModel) {
+                // Construct the generateContent URL from the model name
+                // Model name comes like "models/gemini-pro", so we just append :generateContent
+                ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/" + chosenModel.name + ":generateContent?key=" + GEMINI_API_KEY;
+                status.innerText = "System Ready (v20). AI Connected: " + chosenModel.displayName;
+                status.style.color = "green";
+                return;
+            }
+        }
+        
+        status.innerText = "v20 Error: Key valid, but no Gemini models found.";
+        status.style.color = "orange";
+
+    } catch (e) {
+        console.error(e);
+        status.innerText = "v20 Connection Error: Could not reach Google. " + e.message;
+        status.style.color = "red";
+        // Fallback hardcoded URL if discovery fails
+        ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
+    }
+}
+
 async function startProcess() {
-    console.log("Button clicked! Starting process...");
     updateStatus("Initializing...", false);
     const button = document.getElementById("runButton");
     button.disabled = true;
@@ -120,10 +146,6 @@ async function getAccessToken() {
         cache: { cacheLocation: "localStorage" }
     };
 
-    if (typeof msal === 'undefined') {
-        throw new Error("MSAL library not loaded. Check internet connection.");
-    }
-
     const msalInstance = new msal.PublicClientApplication(msalConfig);
     const tokenRequest = { scopes: ["Mail.Read"] };
 
@@ -177,14 +199,12 @@ async function processEmailWithAI(email, timeVal) {
     let summary = "No content";
 
     try {
-        // CALL THE ROBUST API FUNCTION
-        summary = await callGeminiWithFallback(emailText);
+        summary = await callGeminiAPI(emailText);
     } catch (e) {
         console.error("AI Error:", e);
         summary = "AI Error: " + e.message;
     }
 
-    // Clean summary quotes for CSV safety
     summary = summary.replace(/"/g, "'");
 
     return {
@@ -200,41 +220,34 @@ async function processEmailWithAI(email, timeVal) {
     };
 }
 
-// --- ROBUST AI FUNCTION ---
-async function callGeminiWithFallback(text) {
-    return await tryGeminiEndpoint(URL_PRIMARY, text);
-}
-
-async function tryGeminiEndpoint(url, text) {
+async function callGeminiAPI(text) {
     const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + text;
+    
     const payload = {
-        contents: [{ parts: [{ text: prompt }] }]
+        contents: [{
+            parts: [{ text: prompt }]
+        }]
     };
 
     try {
-        const response = await fetch(url, {
+        const response = await fetch(ACTIVE_GEMINI_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-            // DIAGNOSTIC CHANGE: Flatten the JSON error so it fits in a CSV cell
             const errorText = await response.text();
-            // Remove newlines and quotes to prevent CSV breakage
-            const cleanError = errorText.replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, "'");
-            return "API FAIL: " + response.status + " MSG: " + cleanError.substring(0, 150);
+            // Clean error for CSV
+            const cleanError = errorText.replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, "'").substring(0, 150);
+            return "API FAIL: " + response.status + " REASON: " + cleanError;
         }
 
         const data = await response.json();
-        
-        if (data.candidates && data.candidates.length > 0 && 
-            data.candidates[0].content && 
-            data.candidates[0].content.parts && 
-            data.candidates[0].content.parts.length > 0) {
+        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content) {
              return data.candidates[0].content.parts[0].text;
         }
-        return "Error: Empty AI Response";
+        return "No summary generated";
 
     } catch (networkError) {
         return "Network Error: " + networkError.message;
@@ -267,7 +280,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v19: " + message; 
+        el.innerText = "v20: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
