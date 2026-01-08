@@ -53,7 +53,7 @@
         <button id="runButton">Generate Report</button>
         
         <!-- Default text helps diagnose load issues -->
-        <div id="status">Loading v21...</div>
+        <div id="status">Loading v22...</div>
         
         <!-- Hidden download link -->
         <a id="downloadLink" class="hidden"></a>
@@ -61,11 +61,11 @@
 
     <!-- DIAGNOSTIC SCRIPT -->
     <script>
-        document.getElementById('status').innerText = "HTML Loaded. Fetching JS v21...";
+        document.getElementById('status').innerText = "HTML Loaded. Fetching JS v22...";
     </script>
 
-    <!-- FIXED: Points to taskpane.js with v21 cache buster -->
-    <script src="https://mbjohnst35.github.io/legaltimetracker/taskpane.js?v=21" type="text/javascript" 
+    <!-- FIXED: Points to taskpane.js with v22 cache buster -->
+    <script src="https://mbjohnst35.github.io/legaltimetracker/taskpane.js?v=22" type="text/javascript" 
             onload="document.getElementById('status').innerText += '\nJS Loaded Successfully!'"
             onerror="document.getElementById('status').innerText += '\nCRITICAL: JS FAILED TO LOAD'"></script>
 </body>

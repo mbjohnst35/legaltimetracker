@@ -20,14 +20,15 @@ const CLIENT_ID = "41572571-24e6-44ba-be2c-e3c2b4a0d959";
 const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html"; 
 
 // --- GEMINI AI CONFIGURATION ---
-const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
+// UPDATED KEY
+const GEMINI_API_KEY = "AIzaSyAPcZ6DzH17KAO9JzC_yB4hDxr_UbTcS9Q"; 
 let ACTIVE_GEMINI_URL = ""; 
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status && status.innerText.includes("Loading")) {
-        status.innerText = "v21 Loaded. Starting Discovery...";
+        status.innerText = "v22 Loaded. Starting Discovery...";
     }
 }, 500);
 
@@ -73,7 +74,7 @@ async function discoverGeminiModel() {
             
             if (chosenModel) {
                 ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/" + chosenModel.name + ":generateContent?key=" + GEMINI_API_KEY;
-                status.innerText = "System Ready (v21). Model Found: " + chosenModel.displayName;
+                status.innerText = "System Ready (v22). Model Found: " + chosenModel.displayName;
                 status.style.color = "green";
                 return;
             }
@@ -84,7 +85,7 @@ async function discoverGeminiModel() {
         console.warn("Discovery failed/timed out. Using fallback.", e);
         // Force fallback so the user isn't stuck
         ACTIVE_GEMINI_URL = fallbackUrl;
-        status.innerText = "System Ready (v21 - Fallback Mode).";
+        status.innerText = "System Ready (v22 - Fallback Mode).";
         status.style.color = "blue"; // Blue means "Ready but using fallback"
     }
 }
@@ -290,7 +291,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v21: " + message; 
+        el.innerText = "v22: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
