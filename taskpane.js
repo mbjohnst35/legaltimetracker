@@ -21,25 +21,22 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 
 // --- GEMINI AI CONFIGURATION ---
 const GEMINI_API_KEY = "AIzaSyBm0bT3uUpzSjh-Nq8QT8E_6ZSL8cbQ3c0"; 
-let ACTIVE_GEMINI_URL = ""; // Will be set dynamically
+let ACTIVE_GEMINI_URL = ""; 
 
 // 2. IMMEDIATE VISUAL CHECK
 setTimeout(() => {
     const status = document.getElementById("status");
-    if (status) {
-        // If this text appears, v20 loaded successfully
-        status.innerText = "System Ready (v20 - Auto-Discover). Waiting for user...";
-        status.style.color = "blue";
+    if (status && status.innerText.includes("Loading")) {
+        status.innerText = "v21 Loaded. Starting Discovery...";
     }
 }, 500);
 
 // Add event listener immediately
 document.addEventListener("DOMContentLoaded", () => {
     const runBtn = document.getElementById("runButton");
-    if (runBtn) {
-        runBtn.onclick = startProcess; 
-    }
-    // Auto-discover the correct model on load
+    if (runBtn) runBtn.onclick = startProcess;
+    
+    // Start discovery with a safety timeout
     discoverGeminiModel();
 });
 
@@ -52,37 +49,43 @@ Office.onReady((info) => {
     }
 });
 
-// --- NEW: DYNAMIC MODEL DISCOVERY ---
+// --- NEW: ROBUST MODEL DISCOVERY ---
 async function discoverGeminiModel() {
     const status = document.getElementById("status");
+    const listUrl = "https://generativelanguage.googleapis.com/v1beta/models?key=" + GEMINI_API_KEY;
+    
+    // Default Fallback
+    const fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
+
     try {
-        const listUrl = "https://generativelanguage.googleapis.com/v1beta/models?key=" + GEMINI_API_KEY;
-        const response = await fetch(listUrl);
+        // Set a 3-second timeout for discovery
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch(listUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
         const data = await response.json();
 
         if (data.models) {
-            // Prefer gemini-1.5-flash, fallback to gemini-pro
             let chosenModel = data.models.find(m => m.name.includes("gemini-1.5-flash"));
             if (!chosenModel) chosenModel = data.models.find(m => m.name.includes("gemini-pro"));
             
             if (chosenModel) {
-                // Model name comes like "models/gemini-pro", so we just append :generateContent
                 ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/" + chosenModel.name + ":generateContent?key=" + GEMINI_API_KEY;
-                status.innerText = "System Ready (v20). AI Connected: " + chosenModel.displayName;
+                status.innerText = "System Ready (v21). Model Found: " + chosenModel.displayName;
                 status.style.color = "green";
                 return;
             }
         }
-        
-        status.innerText = "v20 Error: Key valid, but no Gemini models found.";
-        status.style.color = "orange";
+        throw new Error("No compatible models found in list.");
 
     } catch (e) {
-        console.error(e);
-        status.innerText = "v20 Connection Error: Could not reach Google. " + e.message;
-        status.style.color = "red";
-        // Fallback hardcoded URL
-        ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
+        console.warn("Discovery failed/timed out. Using fallback.", e);
+        // Force fallback so the user isn't stuck
+        ACTIVE_GEMINI_URL = fallbackUrl;
+        status.innerText = "System Ready (v21 - Fallback Mode).";
+        status.style.color = "blue"; // Blue means "Ready but using fallback"
     }
 }
 
@@ -224,6 +227,11 @@ async function processEmailWithAI(email, timeVal) {
 }
 
 async function callGeminiAPI(text) {
+    // If discovery failed, use fallback immediately
+    if (!ACTIVE_GEMINI_URL) {
+         return "Error: AI not initialized";
+    }
+
     const prompt = "Summarize the following email in exactly one concise sentence for a legal billing report:\n\n" + text;
     
     const payload = {
@@ -282,7 +290,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v20: " + message; 
+        el.innerText = "v21: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
