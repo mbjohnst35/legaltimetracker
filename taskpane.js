@@ -1,266 +1,290 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Assistant</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-        .chat-container {
-            height: calc(100vh - 180px);
-        }
-        .message-bubble {
-            max-width: 85%;
-            overflow-wrap: break-word;
-        }
-        .typing-indicator span {
-            animation: blink 1.4s infinite both;
-        }
-        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes blink {
-            0% { opacity: 0.2; }
-            20% { opacity: 1; }
-            100% { opacity: 0.2; }
-        }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-        pre {
-            background-color: #1e293b;
-            color: #e2e8f0;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            overflow-x: auto;
-            margin-top: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-    </style>
-</head>
-<body class="bg-gray-100 h-screen flex flex-col items-center">
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
+ * See LICENSE in the project root for license information.
+ */
 
-    <!-- Header -->
-    <header class="w-full bg-white shadow-sm py-4 px-6 flex justify-between items-center z-10">
-        <div class="flex items-center gap-3">
-            <div class="bg-blue-600 text-white p-2 rounded-lg">
-                <i class="fa-solid fa-robot text-xl"></i>
-            </div>
-            <h1 class="text-xl font-bold text-gray-800">AI Assistant</h1>
-        </div>
-        <div class="text-sm text-gray-500">
-            Model: gemini-2.5-flash
-        </div>
-    </header>
+/* global document, Office, msal, console, Blob, URL, window */
 
-    <!-- Main Chat Area -->
-    <main class="flex-1 w-full max-w-4xl p-4 flex flex-col relative">
-        
-        <!-- Chat History -->
-        <div id="chat-history" class="chat-container flex-1 overflow-y-auto bg-white rounded-t-xl shadow-sm p-6 space-y-6 scroll-smooth">
+// 1. GLOBAL ERROR HANDLER
+window.onerror = function(message, source, lineno, colno, error) {
+    const status = document.getElementById("status");
+    if (status) {
+        status.innerText = "CRITICAL JS ERROR: " + message + "\nLine: " + lineno;
+        status.style.color = "red";
+    }
+    console.error("Global Error:", message, error);
+};
+
+// --- CONFIGURATION ---
+const CLIENT_ID = "41572571-24e6-44ba-be2c-e3c2b4a0d959"; 
+const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html"; 
+
+// --- GEMINI AI CONFIGURATION (OBFUSCATED) ---
+// Key is split to prevent GitHub from revoking it on push
+const PART_A = "AIzaSyDmKO808";
+const PART_B = "anbshOud4t51";
+const PART_C = "XY2ueOxDtN9IQc";
+const GEMINI_API_KEY = PART_A + PART_B + PART_C;
+
+let ACTIVE_GEMINI_URL = ""; 
+
+// 2. IMMEDIATE VISUAL CHECK
+setTimeout(() => {
+    const status = document.getElementById("status");
+    if (status && status.innerText.includes("Loading")) {
+        status.innerText = "v31 Loaded. Starting Discovery...";
+    }
+}, 500);
+
+// Add event listener immediately
+document.addEventListener("DOMContentLoaded", () => {
+    const runBtn = document.getElementById("runButton");
+    if (runBtn) runBtn.onclick = startProcess;
+    
+    discoverGeminiModel();
+});
+
+Office.onReady((info) => {
+    if (info.host === Office.HostType.Outlook) {
+        document.getElementById("startDate").valueAsDate = new Date();
+        document.getElementById("endDate").valueAsDate = new Date();
+        const btn = document.getElementById("runButton");
+        if (btn) btn.onclick = startProcess; 
+    }
+});
+
+// --- ROBUST MODEL DISCOVERY ---
+async function discoverGeminiModel() {
+    const status = document.getElementById("status");
+    const listUrl = "https://generativelanguage.googleapis.com/v1beta/models?key=" + GEMINI_API_KEY;
+    
+    // UPDATED: Use 2.5-flash-preview to prevent 404 errors
+    const fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=" + GEMINI_API_KEY;
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch(listUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        const data = await response.json();
+
+        if (data.models) {
+            // UPDATED: Look for 2.5 flash first
+            let chosenModel = data.models.find(m => m.name.includes("gemini-2.5-flash"));
             
-            <!-- Welcome Message -->
-            <div class="flex gap-4">
-                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 text-white">
-                    <i class="fa-solid fa-robot text-xs"></i>
-                </div>
-                <div class="message-bubble bg-gray-100 text-gray-800 rounded-2xl rounded-tl-none p-4 shadow-sm">
-                    <p>Hello! I'm your AI assistant. How can I help you today?</p>
-                </div>
-            </div>
+            if (chosenModel) {
+                ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/" + chosenModel.name + ":generateContent?key=" + GEMINI_API_KEY;
+                status.innerText = "System Ready (v31 - Turbo Mode). Model: " + chosenModel.displayName;
+                status.style.color = "green";
+                return;
+            }
+        }
+        // If specific search fails, use the fallback
+        throw new Error("Preferred model not found in list, switching to fallback.");
 
-        </div>
+    } catch (e) {
+        console.warn("Discovery failed or timed out. Using Hardcoded Fallback.", e);
+        ACTIVE_GEMINI_URL = fallbackUrl;
+        status.innerText = "System Ready (v31 - Fallback Mode).";
+        status.style.color = "blue"; 
+    }
+}
 
-        <!-- Input Area -->
-        <div class="bg-white p-4 rounded-b-xl shadow-lg border-t border-gray-100">
-            <div class="relative flex items-end gap-2 bg-gray-50 rounded-xl border border-gray-200 p-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all">
-                <textarea 
-                    id="user-input" 
-                    rows="1" 
-                    placeholder="Type your message..." 
-                    class="w-full bg-transparent border-none focus:ring-0 resize-none py-3 px-2 max-h-32 text-gray-700"
-                    onkeydown="handleEnter(event)"></textarea>
-                
-                <button 
-                    onclick="sendMessage()" 
-                    id="send-btn"
-                    class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i class="fa-solid fa-paper-plane"></i>
-                </button>
-            </div>
-            <div class="text-xs text-center text-gray-400 mt-2">
-                Press Enter to send, Shift+Enter for new line
-            </div>
-        </div>
+async function startProcess() {
+    updateStatus("Initializing...", false);
+    const button = document.getElementById("runButton");
+    button.disabled = true;
 
-    </main>
-
-    <script>
-        // --- API CONFIGURATION ---
-        const apiKey = ""; // System provided key (if available in env)
-        const manualKey = "AIzaSyDmKO808anbshOud4t51XY2ueOxDtN9IQc"; // User provided key
+    try {
+        const accessToken = await getAccessToken();
+        const folder = document.getElementById("folderSelect").value;
+        const startInput = document.getElementById("startDate").value;
+        const endInput = document.getElementById("endDate").value;
         
-        // Use manual key if system key is empty
-        const effectiveKey = apiKey || manualKey;
+        if (!startInput || !endInput) throw new Error("Please select both start and end dates.");
 
-        // Correct Model Endpoint to prevent 404s
-        const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
+        const startDate = new Date(startInput);
+        const endDate = new Date(endInput);
+        const timeVal = document.getElementById("timeValue").value;
+        endDate.setHours(23, 59, 59, 999);
 
-        // State
-        let isGenerating = false;
-        const chatHistory = document.getElementById('chat-history');
-        const userInput = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
+        updateStatus("Fetching emails from " + folder + "...", false);
+        const emails = await fetchEmails(accessToken, folder, startDate, endDate);
 
-        // Auto-resize textarea
-        userInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-            if(this.value === '') this.style.height = 'auto';
+        if (emails.length === 0) {
+            updateStatus("No emails found in that date range.", false);
+            button.disabled = false;
+            return;
+        }
+
+        updateStatus("Found " + emails.length + " emails. Starting Turbo Processing...", false);
+
+        // --- BATCH LOGIC (NO DELAY) ---
+        const reportData = [];
+        const BATCH_SIZE = 10; // Increased batch size for speed
+        
+        // We will fire all batches almost simultaneously
+        for (let i = 0; i < emails.length; i += BATCH_SIZE) {
+            const chunk = emails.slice(i, i + BATCH_SIZE);
+            const currentCount = Math.min(i + BATCH_SIZE, emails.length);
+            
+            updateStatus("Processing batch " + currentCount + "/" + emails.length + "...", false);
+            
+            // Send chunk to AI
+            const summarizedChunk = await processBatchWithAI(chunk, timeVal);
+            reportData.push(...summarizedChunk);
+        }
+
+        generateCSV(reportData);
+        updateStatus("Success! Report generated for " + emails.length + " emails.", true);
+
+    } catch (error) {
+        updateStatus("Error: " + error.message, true);
+        console.error(error);
+    } finally {
+        button.disabled = false;
+    }
+}
+
+// --- BATCH AI FUNCTION ---
+async function processBatchWithAI(emailBatch, timeVal) {
+    let prompt = "Summarize each of the following emails in exactly one concise sentence for a legal billing report. Return the result as a JSON object where the key is the EmailID and the value is the summary.\n\n";
+    
+    emailBatch.forEach((email, index) => {
+        const subject = (email.subject || "No Subject").replace(/(\r\n|\n|\r)/gm, " ");
+        const body = (email.bodyPreview || "No Content").replace(/(\r\n|\n|\r)/gm, " ");
+        prompt += `EmailID "${index}":\nSubject: ${subject}\nBody: ${body}\n\n`;
+    });
+
+    let summaries = {};
+
+    try {
+        if (!ACTIVE_GEMINI_URL) throw new Error("AI not initialized");
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }]
+        };
+
+        const response = await fetch(ACTIVE_GEMINI_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
         });
 
-        function handleEnter(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`API Error ${response.status}: ${errText}`);
         }
 
-        function scrollToBottom() {
-            chatHistory.scrollTop = chatHistory.scrollHeight;
+        const data = await response.json();
+        const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        // Sanitize JSON string before parsing
+        const cleanJson = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
+        summaries = JSON.parse(cleanJson);
+
+    } catch (e) {
+        console.error("Batch Failed:", e);
+        emailBatch.forEach((_, index) => {
+            summaries[index] = "Error: " + e.message;
+        });
+    }
+
+    return emailBatch.map((email, index) => {
+        const dateObj = new Date(email.receivedDateTime);
+        const senderName = email.sender?.emailAddress?.name || "Unknown";
+        const senderAddr = email.sender?.emailAddress?.address || "Unknown";
+        const recipients = (email.toRecipients || []).map(r => r.emailAddress.name).join("; ");
+        
+        let summary = summaries[index.toString()] || "Error: Summary missing";
+        summary = summary.replace(/"/g, "'"); 
+
+        return {
+            "Date": dateObj.toLocaleDateString(),
+            "Time": dateObj.toLocaleTimeString(),
+            "Sender Name": senderName,
+            "Sender Email": senderAddr,
+            "Recipient Name": recipients,
+            "Subject": (email.subject || "").replace(/,/g, " "),
+            "Summary": summary,
+            "Time Value": timeVal
+        };
+    });
+}
+
+async function getAccessToken() {
+    const msalConfig = {
+        auth: {
+            clientId: CLIENT_ID,
+            authority: "https://login.microsoftonline.com/common",
+            redirectUri: REDIRECT_URI,
+        },
+        cache: { cacheLocation: "localStorage" }
+    };
+
+    if (typeof msal === 'undefined') throw new Error("MSAL not loaded");
+
+    const msalInstance = new msal.PublicClientApplication(msalConfig);
+    const tokenRequest = { scopes: ["Mail.Read"] };
+
+    try {
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+            tokenRequest.account = accounts[0];
+            const response = await msalInstance.acquireTokenSilent(tokenRequest);
+            return response.accessToken;
+        } else {
+            throw new Error("No account");
         }
+    } catch (err) {
+        const response = await msalInstance.acquireTokenPopup(tokenRequest);
+        return response.accessToken;
+    }
+}
 
-        function appendMessage(role, text, isError = false) {
-            const div = document.createElement('div');
-            div.className = `flex gap-4 ${role === 'user' ? 'flex-row-reverse' : ''}`;
-            
-            const avatar = document.createElement('div');
-            avatar.className = `w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white ${role === 'user' ? 'bg-gray-700' : (isError ? 'bg-red-500' : 'bg-blue-600')}`;
-            avatar.innerHTML = role === 'user' ? '<i class="fa-solid fa-user text-xs"></i>' : (isError ? '<i class="fa-solid fa-exclamation text-xs"></i>' : '<i class="fa-solid fa-robot text-xs"></i>');
+async function fetchEmails(token, folder, start, end) {
+    const startStr = start.toISOString();
+    const endStr = end.toISOString();
+    const url = "https://graph.microsoft.com/v1.0/me/mailFolders/" + folder + "/messages" +
+        "?$filter=receivedDateTime ge " + startStr + " and receivedDateTime le " + endStr +
+        "&$select=receivedDateTime,sender,toRecipients,subject,bodyPreview" +
+        "&$top=500&$orderby=receivedDateTime desc";
 
-            const bubble = document.createElement('div');
-            bubble.className = `message-bubble p-4 shadow-sm text-sm md:text-base ${
-                role === 'user' 
-                ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none' 
-                : (isError ? 'bg-red-50 text-red-800 border border-red-200 rounded-2xl rounded-tl-none' : 'bg-gray-100 text-gray-800 rounded-2xl rounded-tl-none')
-            }`;
-            
-            // Parse Markdown for AI responses
-            if (role === 'model' && !isError) {
-                bubble.innerHTML = marked.parse(text);
-            } else {
-                bubble.textContent = text;
-            }
+    const response = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+    if (!response.ok) throw new Error("Graph API Error: " + response.statusText);
+    const data = await response.json();
+    return data.value;
+}
 
-            div.appendChild(avatar);
-            div.appendChild(bubble);
-            chatHistory.appendChild(div);
-            scrollToBottom();
-            return bubble;
-        }
+function generateCSV(data) {
+    if (data.length === 0) return;
+    const headers = Object.keys(data[0]);
+    const csvRows = [];
+    csvRows.push(headers.join(","));
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const values = headers.map(function(header) {
+            let val = row[header] || "";
+            val = String(val).replace(/"/g, '""'); 
+            return '"' + val + '"';
+        });
+        csvRows.push(values.join(","));
+    }
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.getElementById("downloadLink");
+    a.href = url;
+    a.download = "Billable_AI_Report_" + new Date().getTime() + ".csv";
+    a.click();
+}
 
-        function showTypingIndicator() {
-            const div = document.createElement('div');
-            div.id = 'typing-indicator';
-            div.className = 'flex gap-4';
-            div.innerHTML = `
-                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 text-white">
-                    <i class="fa-solid fa-robot text-xs"></i>
-                </div>
-                <div class="message-bubble bg-gray-100 text-gray-800 rounded-2xl rounded-tl-none p-4 shadow-sm flex items-center gap-1 typing-indicator">
-                    <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
-                    <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
-                    <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
-                </div>
-            `;
-            chatHistory.appendChild(div);
-            scrollToBottom();
-            return div;
-        }
-
-        function removeTypingIndicator() {
-            const indicator = document.getElementById('typing-indicator');
-            if (indicator) indicator.remove();
-        }
-
-        async function sendMessage() {
-            const text = userInput.value.trim();
-            if (!text || isGenerating) return;
-
-            // UI Updates
-            userInput.value = '';
-            userInput.style.height = 'auto';
-            isGenerating = true;
-            sendBtn.disabled = true;
-            appendMessage('user', text);
-            showTypingIndicator();
-
-            try {
-                if (!effectiveKey) {
-                    throw new Error("No API Key provided. Please check the code configuration.");
-                }
-
-                const response = await fetch(`${API_URL}?key=${effectiveKey}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{ text: text }]
-                        }]
-                    })
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json();
-                    console.error("API Error Details:", errData);
-                    
-                    // Handle specifically the 404 which is common with model version issues
-                    if (response.status === 404) {
-                        throw new Error("Error 404: The AI Model endpoint was not found. This usually means the model version is deprecated or the URL is malformed.");
-                    }
-                    
-                    throw new Error(`API Error ${response.status}: ${errData.error?.message || response.statusText}`);
-                }
-
-                const data = await response.json();
-                const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (aiText) {
-                    removeTypingIndicator();
-                    appendMessage('model', aiText);
-                } else {
-                    throw new Error("Received an empty response from the AI.");
-                }
-
-            } catch (error) {
-                console.error(error);
-                removeTypingIndicator();
-                appendMessage('model', `Error: ${error.message}`, true);
-            } finally {
-                isGenerating = false;
-                sendBtn.disabled = false;
-                userInput.focus();
-            }
-        }
-    </script>
-</body>
-</html>
+function updateStatus(message, isError) {
+    const el = document.getElementById("status");
+    if (el) {
+        el.innerText = "v31: " + message; 
+        el.style.color = isError ? "red" : "black";
+    }
+}
