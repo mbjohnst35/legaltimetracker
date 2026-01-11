@@ -53,7 +53,7 @@
         <button id="runButton">Generate Report</button>
         
         <!-- Default text helps diagnose load issues -->
-        <div id="status">Loading v35...</div>
+        <div id="status">Loading v37...</div>
         
         <!-- Hidden download link -->
         <a id="downloadLink" class="hidden"></a>
@@ -61,11 +61,11 @@
 
     <!-- DIAGNOSTIC SCRIPT -->
     <script>
-        document.getElementById('status').innerText = "HTML Loaded. Fetching JS v35...";
+        document.getElementById('status').innerText = "HTML Loaded. Fetching JS v37...";
     </script>
 
-    <!-- Pointing to relative file with v35 cache buster -->
-    <script src="taskpane.js?v=35" type="text/javascript" 
+    <!-- Pointing to relative file with v37 cache buster -->
+    <script src="taskpane.js?v=37" type="text/javascript" 
             onload="document.getElementById('status').innerText += '\nJS Loaded Successfully!'"
             onerror="document.getElementById('status').innerText += '\nCRITICAL: JS FAILED TO LOAD'"></script>
 </body>

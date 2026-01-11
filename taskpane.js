@@ -21,7 +21,6 @@ const REDIRECT_URI = "https://mbjohnst35.github.io/taskpane.html";
 
 // --- GEMINI AI CONFIGURATION (SECURITY FIX) ---
 // We inject "garbage" text into the key so GitHub scanners ignore it.
-// The code removes it at runtime.
 const OBFUSCATED_KEY = "AIzaSyBo2-iCzBj9saw__GARBAGE__UpnPYuXQ0iw4F0tnFgC4";
 
 // Restore the real key by removing the garbage
@@ -33,7 +32,7 @@ let ACTIVE_GEMINI_URL = "";
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status && status.innerText.includes("Loading")) {
-        status.innerText = "v35 Loaded. Starting Discovery...";
+        status.innerText = "v37 Loaded. Starting Discovery...";
     }
 }, 500);
 
@@ -69,7 +68,6 @@ async function discoverGeminiModel() {
         const response = await fetch(listUrl, { signal: controller.signal });
         clearTimeout(timeoutId);
 
-        // If the key is invalid (403), throw immediately
         if (!response.ok) {
             const err = await response.json();
             throw new Error(err.error?.message || response.statusText);
@@ -78,29 +76,26 @@ async function discoverGeminiModel() {
         const data = await response.json();
 
         if (data.models) {
-            // UPDATED: Look for 2.5 flash first
             let chosenModel = data.models.find(m => m.name.includes("gemini-2.5-flash"));
             
             if (chosenModel) {
                 ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/" + chosenModel.name + ":generateContent?key=" + GEMINI_API_KEY;
-                status.innerText = "System Ready (v35 - Turbo Mode). Model: " + chosenModel.displayName;
+                status.innerText = "System Ready (v37 - Turbo Mode). Model: " + chosenModel.displayName;
                 status.style.color = "green";
                 return;
             }
         }
-        // If specific search fails, use the fallback
         throw new Error("Preferred model not found in list, switching to fallback.");
 
     } catch (e) {
         console.warn("Discovery failed or timed out. Using Hardcoded Fallback.", e);
         ACTIVE_GEMINI_URL = fallbackUrl;
         
-        // Show specific error if key is dead
         if (e.message.includes("leaked") || e.message.includes("API key")) {
             status.innerText = "API KEY ERROR: Key is invalid or leaked. Generate a new one.";
             status.style.color = "red";
         } else {
-            status.innerText = "System Ready (v35 - Fallback Mode).";
+            status.innerText = "System Ready (v37 - Fallback Mode).";
             status.style.color = "blue"; 
         }
     }
@@ -124,7 +119,7 @@ async function startProcess() {
         const timeVal = document.getElementById("timeValue").value;
         endDate.setHours(23, 59, 59, 999);
 
-        updateStatus("Fetching emails from " + folder + "...", false);
+        // Fetching logic handles the status updates internally now
         const emails = await fetchEmails(accessToken, folder, startDate, endDate);
 
         if (emails.length === 0) {
@@ -133,22 +128,24 @@ async function startProcess() {
             return;
         }
 
-        updateStatus("Found " + emails.length + " emails. Starting Turbo Processing...", false);
+        updateStatus("Found " + emails.length + " emails. Starting Processing...", false);
 
-        // --- BATCH LOGIC (NO DELAY) ---
         const reportData = [];
-        const BATCH_SIZE = 10; // Increased batch size for speed
+        const BATCH_SIZE = 10; 
         
-        // We will fire all batches almost simultaneously
         for (let i = 0; i < emails.length; i += BATCH_SIZE) {
             const chunk = emails.slice(i, i + BATCH_SIZE);
             const currentCount = Math.min(i + BATCH_SIZE, emails.length);
             
             updateStatus("Processing batch " + currentCount + "/" + emails.length + "...", false);
             
-            // Send chunk to AI
             const summarizedChunk = await processBatchWithAI(chunk, timeVal);
             reportData.push(...summarizedChunk);
+
+            // 2-second rate limit pause
+            if (i + BATCH_SIZE < emails.length) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
         }
 
         generateCSV(reportData);
@@ -162,9 +159,41 @@ async function startProcess() {
     }
 }
 
+// --- PAGINATION FIX ---
+async function fetchEmails(token, folder, start, end) {
+    const startStr = start.toISOString();
+    const endStr = end.toISOString();
+    
+    // Initial Request URL
+    let url = "https://graph.microsoft.com/v1.0/me/mailFolders/" + folder + "/messages" +
+        "?$filter=receivedDateTime ge " + startStr + " and receivedDateTime le " + endStr +
+        "&$select=receivedDateTime,sender,toRecipients,subject,bodyPreview" +
+        "&$top=500&$orderby=receivedDateTime desc"; // 500 per page
+
+    let allMessages = [];
+    
+    // While there is a URL (including nextLink), keep fetching
+    while (url) {
+        updateStatus("Fetching emails... (Count: " + allMessages.length + ")", false);
+        
+        const response = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+        if (!response.ok) throw new Error("Graph API Error: " + response.statusText);
+        
+        const data = await response.json();
+        
+        if (data.value) {
+            allMessages = allMessages.concat(data.value);
+        }
+        
+        // If Microsoft has more pages, this property will be present
+        url = data["@odata.nextLink"]; 
+    }
+    
+    return allMessages;
+}
+
 // --- BATCH AI FUNCTION ---
 async function processBatchWithAI(emailBatch, timeVal) {
-    // UPDATED PROMPT: Specific instructions to avoid "This email..."
     let prompt = "Summarize the action or content of each email below in one concise sentence for a legal billing time entry. Do not use phrases like 'This email discusses' or 'The sender'. Start directly with the verb (e.g., 'Reviewed', 'Discussed', 'Sent'). Return the result as a JSON object where the key is the EmailID and the value is the summary.\n\n";
     
     emailBatch.forEach((email, index) => {
@@ -196,14 +225,13 @@ async function processBatchWithAI(emailBatch, timeVal) {
         const data = await response.json();
         const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
         
-        // Sanitize JSON string before parsing
         const cleanJson = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
         summaries = JSON.parse(cleanJson);
 
     } catch (e) {
         console.error("Batch Failed:", e);
         emailBatch.forEach((_, index) => {
-            summaries[index] = "Error: " + e.message;
+            summaries[index] = "Review email regarding " + (emailBatch[index].subject || "subject");
         });
     }
 
@@ -259,20 +287,6 @@ async function getAccessToken() {
     }
 }
 
-async function fetchEmails(token, folder, start, end) {
-    const startStr = start.toISOString();
-    const endStr = end.toISOString();
-    const url = "https://graph.microsoft.com/v1.0/me/mailFolders/" + folder + "/messages" +
-        "?$filter=receivedDateTime ge " + startStr + " and receivedDateTime le " + endStr +
-        "&$select=receivedDateTime,sender,toRecipients,subject,bodyPreview" +
-        "&$top=500&$orderby=receivedDateTime desc";
-
-    const response = await fetch(url, { headers: { Authorization: "Bearer " + token } });
-    if (!response.ok) throw new Error("Graph API Error: " + response.statusText);
-    const data = await response.json();
-    return data.value;
-}
-
 function generateCSV(data) {
     if (data.length === 0) return;
     const headers = Object.keys(data[0]);
@@ -299,7 +313,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v35: " + message; 
+        el.innerText = "v37: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
