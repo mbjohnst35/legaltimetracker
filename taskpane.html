@@ -28,6 +28,21 @@
             border-radius: 4px;
         }
         .hidden { display: none; }
+        
+        /* Key Entry Section */
+        #key-section {
+            border-top: 1px solid #eee;
+            margin-top: 20px;
+            padding-top: 10px;
+        }
+        .small-link {
+            font-size: 10px;
+            color: #999;
+            text-align: center;
+            margin-top: 20px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -35,25 +50,38 @@
         <h2>Legal Time Tracker</h2>
         <p style="font-size:12px; color:#666;">Generate a billable time spreadsheet for a date range.</p>
 
-        <label>Folder to Scan</label>
-        <select id="folderSelect">
-            <option value="inbox">Inbox</option>
-            <option value="sentitems">Sent Items</option>
-        </select>
+        <!-- API KEY SECTION (Visible if no key saved) -->
+        <div id="key-section" style="display:none;">
+            <label style="color: #d83b01;">One-Time Setup: Enter Gemini API Key</label>
+            <input type="password" id="apiKeyInput" placeholder="Paste key starting with AIzaSy...">
+            <button id="saveKeyButton" style="background-color: #107c10; margin-top: 10px;">Save API Key</button>
+            <p style="font-size:10px; color:#666; margin-top:5px;">Your key is saved locally in your browser. It is never sent to our servers.</p>
+        </div>
 
-        <label>Start Date</label>
-        <input type="date" id="startDate">
+        <!-- MAIN APP SECTION (Hidden until key saved) -->
+        <div id="main-section" style="display:none;">
+            <label>Folder to Scan</label>
+            <select id="folderSelect">
+                <option value="inbox">Inbox</option>
+                <option value="sentitems">Sent Items</option>
+            </select>
 
-        <label>End Date</label>
-        <input type="date" id="endDate">
+            <label>Start Date</label>
+            <input type="date" id="startDate">
 
-        <label>Time Value per Email (Hours)</label>
-        <input type="number" id="timeValue" step="0.1" value="0.1">
+            <label>End Date</label>
+            <input type="date" id="endDate">
 
-        <button id="runButton">Generate Report</button>
+            <label>Time Value per Email (Hours)</label>
+            <input type="number" id="timeValue" step="0.1" value="0.1">
+
+            <button id="runButton">Generate Report</button>
+            
+            <div id="resetKeyLink" class="small-link">Change API Key</div>
+        </div>
         
         <!-- Default text helps diagnose load issues -->
-        <div id="status">Loading v37...</div>
+        <div id="status">Loading v38...</div>
         
         <!-- Hidden download link -->
         <a id="downloadLink" class="hidden"></a>
@@ -61,11 +89,11 @@
 
     <!-- DIAGNOSTIC SCRIPT -->
     <script>
-        document.getElementById('status').innerText = "HTML Loaded. Fetching JS v37...";
+        document.getElementById('status').innerText = "HTML Loaded. Fetching JS v38...";
     </script>
 
-    <!-- Pointing to relative file with v37 cache buster -->
-    <script src="taskpane.js?v=37" type="text/javascript" 
+    <!-- Pointing to relative file with v38 cache buster -->
+    <script src="taskpane.js?v=38" type="text/javascript" 
             onload="document.getElementById('status').innerText += '\nJS Loaded Successfully!'"
             onerror="document.getElementById('status').innerText += '\nCRITICAL: JS FAILED TO LOAD'"></script>
 </body>
