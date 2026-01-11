@@ -33,7 +33,7 @@ let ACTIVE_GEMINI_URL = "";
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status && status.innerText.includes("Loading")) {
-        status.innerText = "v34 Loaded. Starting Discovery...";
+        status.innerText = "v35 Loaded. Starting Discovery...";
     }
 }, 500);
 
@@ -83,7 +83,7 @@ async function discoverGeminiModel() {
             
             if (chosenModel) {
                 ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/" + chosenModel.name + ":generateContent?key=" + GEMINI_API_KEY;
-                status.innerText = "System Ready (v34 - Turbo Mode). Model: " + chosenModel.displayName;
+                status.innerText = "System Ready (v35 - Turbo Mode). Model: " + chosenModel.displayName;
                 status.style.color = "green";
                 return;
             }
@@ -100,7 +100,7 @@ async function discoverGeminiModel() {
             status.innerText = "API KEY ERROR: Key is invalid or leaked. Generate a new one.";
             status.style.color = "red";
         } else {
-            status.innerText = "System Ready (v34 - Fallback Mode).";
+            status.innerText = "System Ready (v35 - Fallback Mode).";
             status.style.color = "blue"; 
         }
     }
@@ -164,7 +164,8 @@ async function startProcess() {
 
 // --- BATCH AI FUNCTION ---
 async function processBatchWithAI(emailBatch, timeVal) {
-    let prompt = "Summarize each of the following emails in exactly one concise sentence for a legal billing report. Return the result as a JSON object where the key is the EmailID and the value is the summary.\n\n";
+    // UPDATED PROMPT: Specific instructions to avoid "This email..."
+    let prompt = "Summarize the action or content of each email below in one concise sentence for a legal billing time entry. Do not use phrases like 'This email discusses' or 'The sender'. Start directly with the verb (e.g., 'Reviewed', 'Discussed', 'Sent'). Return the result as a JSON object where the key is the EmailID and the value is the summary.\n\n";
     
     emailBatch.forEach((email, index) => {
         const subject = (email.subject || "No Subject").replace(/(\r\n|\n|\r)/gm, " ");
@@ -298,7 +299,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v34: " + message; 
+        el.innerText = "v35: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
