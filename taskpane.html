@@ -50,8 +50,8 @@
         <h2>Legal Time Tracker</h2>
         <p style="font-size:12px; color:#666;">Generate a billable time spreadsheet for a date range.</p>
 
-        <!-- API KEY SECTION (Visible if no key saved) -->
-        <div id="key-section" style="display:none;">
+        <!-- API KEY SECTION (Visible by default now) -->
+        <div id="key-section">
             <label style="color: #d83b01;">One-Time Setup: Enter Gemini API Key</label>
             <input type="password" id="apiKeyInput" placeholder="Paste key starting with AIzaSy...">
             <button id="saveKeyButton" style="background-color: #107c10; margin-top: 10px;">Save API Key</button>
@@ -81,7 +81,7 @@
         </div>
         
         <!-- Default text helps diagnose load issues -->
-        <div id="status">Loading v38...</div>
+        <div id="status">Loading v39...</div>
         
         <!-- Hidden download link -->
         <a id="downloadLink" class="hidden"></a>
@@ -89,11 +89,11 @@
 
     <!-- DIAGNOSTIC SCRIPT -->
     <script>
-        document.getElementById('status').innerText = "HTML Loaded. Fetching JS v38...";
+        document.getElementById('status').innerText = "HTML Loaded. Fetching JS v39...";
     </script>
 
-    <!-- Pointing to relative file with v38 cache buster -->
-    <script src="taskpane.js?v=38" type="text/javascript" 
+    <!-- Pointing to relative file with v39 cache buster -->
+    <script src="taskpane.js?v=39" type="text/javascript" 
             onload="document.getElementById('status').innerText += '\nJS Loaded Successfully!'"
             onerror="document.getElementById('status').innerText += '\nCRITICAL: JS FAILED TO LOAD'"></script>
 </body>

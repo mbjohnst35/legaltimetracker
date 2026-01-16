@@ -25,13 +25,23 @@ let ACTIVE_GEMINI_URL = "";
 setTimeout(() => {
     const status = document.getElementById("status");
     if (status && status.innerText.includes("Loading")) {
-        status.innerText = "v38 Loaded. Checking for Key...";
+        status.innerText = "v39 Loaded. Waiting for Office...";
     }
 }, 500);
 
-// Add event listener immediately
-document.addEventListener("DOMContentLoaded", () => {
-    // Button Event Listeners
+// 3. MAIN INITIALIZATION
+Office.onReady((info) => {
+    // Set up date defaults if in Outlook
+    if (info.host === Office.HostType.Outlook) {
+        const start = document.getElementById("startDate");
+        const end = document.getElementById("endDate");
+        if (start && end) {
+            start.valueAsDate = new Date();
+            end.valueAsDate = new Date();
+        }
+    }
+
+    // Attach Button Listeners
     const runBtn = document.getElementById("runButton");
     if (runBtn) runBtn.onclick = startProcess;
 
@@ -40,37 +50,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const resetKeyBtn = document.getElementById("resetKeyLink");
     if (resetKeyBtn) resetKeyBtn.onclick = resetApiKey;
-    
-    // Check if we have a key saved
-    checkApiKey();
-});
 
-Office.onReady((info) => {
-    if (info.host === Office.HostType.Outlook) {
-        document.getElementById("startDate").valueAsDate = new Date();
-        document.getElementById("endDate").valueAsDate = new Date();
-    }
+    // CHECK FOR KEY
+    checkApiKey();
 });
 
 // --- KEY MANAGEMENT ---
 function checkApiKey() {
-    const storedKey = localStorage.getItem("gemini_api_key");
+    const status = document.getElementById("status");
+    let storedKey = null;
+
+    try {
+        storedKey = localStorage.getItem("gemini_api_key");
+    } catch (e) {
+        console.warn("LocalStorage access denied:", e);
+        // If storage fails, we just stay on the login screen
+    }
+
     const loginSection = document.getElementById("key-section");
     const mainSection = document.getElementById("main-section");
-    const status = document.getElementById("status");
 
-    if (!storedKey) {
-        // No key found, show login
-        if (loginSection) loginSection.style.display = "block";
-        if (mainSection) mainSection.style.display = "none";
-        status.innerText = "Please enter your API Key to begin.";
-        status.style.color = "blue";
-    } else {
-        // Key found, show main app
+    if (storedKey) {
+        // We have a key! Hide login, Show Main.
         if (loginSection) loginSection.style.display = "none";
         if (mainSection) mainSection.style.display = "block";
-        status.innerText = "Key found. Initializing AI...";
+        
+        status.innerText = "Key found. System Ready (v39).";
+        status.style.color = "green";
+        
+        // Pre-validate the key model
         discoverGeminiModel(storedKey);
+    } else {
+        // No key. Ensure Login is visible (it is default, but just in case)
+        if (loginSection) loginSection.style.display = "block";
+        if (mainSection) mainSection.style.display = "none";
+        
+        status.innerText = "Setup Required: Please enter API Key.";
+        status.style.color = "blue";
     }
 }
 
@@ -78,29 +94,30 @@ function saveApiKey() {
     const input = document.getElementById("apiKeyInput");
     const key = input.value.trim();
     if (!key) {
-        // simple alert fallback
-        const status = document.getElementById("status");
-        status.innerText = "Please paste a valid API Key.";
-        status.style.color = "red";
+        alert("Please paste a valid API Key.");
         return;
     }
-    // Save to browser storage
-    localStorage.setItem("gemini_api_key", key);
-    // Reload check
-    checkApiKey();
+    try {
+        localStorage.setItem("gemini_api_key", key);
+        checkApiKey(); // Reload UI
+    } catch (e) {
+        alert("Error saving key: " + e.message);
+    }
 }
 
 function resetApiKey() {
-    localStorage.removeItem("gemini_api_key");
-    location.reload();
+    try {
+        localStorage.removeItem("gemini_api_key");
+        location.reload();
+    } catch (e) {
+        console.error(e);
+    }
 }
 
 // --- ROBUST MODEL DISCOVERY ---
 async function discoverGeminiModel(apiKey) {
     const status = document.getElementById("status");
     const listUrl = "https://generativelanguage.googleapis.com/v1beta/models?key=" + apiKey;
-    
-    // UPDATED: Use 2.5-flash-preview
     const fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=" + apiKey;
 
     try {
@@ -111,10 +128,7 @@ async function discoverGeminiModel(apiKey) {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            // If 403/400, the key is probably bad
-            if (response.status === 400 || response.status === 403) {
-                throw new Error("INVALID_KEY");
-            }
+            if (response.status === 400 || response.status === 403) throw new Error("INVALID_KEY");
             const err = await response.json();
             throw new Error(err.error?.message || response.statusText);
         }
@@ -123,33 +137,33 @@ async function discoverGeminiModel(apiKey) {
 
         if (data.models) {
             let chosenModel = data.models.find(m => m.name.includes("gemini-2.5-flash"));
-            
             if (chosenModel) {
                 ACTIVE_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/" + chosenModel.name + ":generateContent?key=" + apiKey;
-                status.innerText = "System Ready (v38).";
-                status.style.color = "green";
+                status.innerText = "System Ready (v39 - Turbo).";
                 return;
             }
         }
         throw new Error("Preferred model not found.");
 
     } catch (e) {
-        if (e.message === "INVALID_KEY" || e.message.includes("API key")) {
-            status.innerText = "Error: Invalid API Key. Please click 'Change API Key' below.";
+        if (e.message === "INVALID_KEY") {
+            status.innerText = "Error: Invalid API Key. Please reset.";
             status.style.color = "red";
-            // We don't auto-clear here to give user a chance to read the error, 
-            // but they can click the reset link.
             return;
         }
-
-        console.warn("Discovery failed. Using Fallback.", e);
         ACTIVE_GEMINI_URL = fallbackUrl;
-        status.innerText = "System Ready (v38 - Fallback).";
-        status.style.color = "blue"; 
+        console.warn("Discovery failed, using fallback.");
     }
 }
 
 async function startProcess() {
+    // Get the key again for execution
+    const apiKey = localStorage.getItem("gemini_api_key");
+    if (!apiKey) {
+        checkApiKey(); // Kick back to login screen
+        return;
+    }
+
     updateStatus("Initializing...", false);
     const button = document.getElementById("runButton");
     button.disabled = true;
@@ -167,7 +181,6 @@ async function startProcess() {
         const timeVal = document.getElementById("timeValue").value;
         endDate.setHours(23, 59, 59, 999);
 
-        // Fetching logic handles the status updates internally now
         const emails = await fetchEmails(accessToken, folder, startDate, endDate);
 
         if (emails.length === 0) {
@@ -190,7 +203,6 @@ async function startProcess() {
             const summarizedChunk = await processBatchWithAI(chunk, timeVal);
             reportData.push(...summarizedChunk);
 
-            // 2-second rate limit pause
             if (i + BATCH_SIZE < emails.length) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
@@ -239,7 +251,6 @@ async function fetchEmails(token, folder, start, end) {
 
 // --- BATCH AI FUNCTION ---
 async function processBatchWithAI(emailBatch, timeVal) {
-    // UPDATED PROMPT: Specific instructions to avoid "This email..."
     let prompt = "Summarize the action or content of each email below in one concise sentence for a legal billing time entry. Do not use phrases like 'This email discusses' or 'The sender'. Start directly with the verb (e.g., 'Reviewed', 'Discussed', 'Sent'). Return the result as a JSON object where the key is the EmailID and the value is the summary.\n\n";
     
     emailBatch.forEach((email, index) => {
@@ -359,7 +370,7 @@ function generateCSV(data) {
 function updateStatus(message, isError) {
     const el = document.getElementById("status");
     if (el) {
-        el.innerText = "v38: " + message; 
+        el.innerText = "v39: " + message; 
         el.style.color = isError ? "red" : "black";
     }
 }
