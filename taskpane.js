@@ -215,4 +215,151 @@ async function fetchEmails(token, folder, start, end) {
     let url = "https://graph.microsoft.com/v1.0/me/mailFolders/" + folder + "/messages" +
         "?$filter=receivedDateTime ge " + startStr + " and receivedDateTime le " + endStr +
         "&$select=receivedDateTime,sender,toRecipients,subject,bodyPreview" +
-        "&$top=500&$orderby=receivedDateTime
+        "&$top=500&$orderby=receivedDateTime desc"; 
+
+    let allMessages = [];
+    
+    while (url) {
+        updateStatus("Fetching emails... (Count: " + allMessages.length + ")", false);
+        
+        const response = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+        if (!response.ok) throw new Error("Graph API Error: " + response.statusText);
+        
+        const data = await response.json();
+        
+        if (data.value) {
+            allMessages = allMessages.concat(data.value);
+        }
+        
+        url = data["@odata.nextLink"]; 
+    }
+    
+    return allMessages;
+}
+
+// --- BATCH AI FUNCTION ---
+async function processBatchWithAI(emailBatch, timeVal) {
+    // UPDATED PROMPT: Specific instructions to avoid "This email..."
+    let prompt = "Summarize the action or content of each email below in one concise sentence for a legal billing time entry. Do not use phrases like 'This email discusses' or 'The sender'. Start directly with the verb (e.g., 'Reviewed', 'Discussed', 'Sent'). Return the result as a JSON object where the key is the EmailID and the value is the summary.\n\n";
+    
+    emailBatch.forEach((email, index) => {
+        const subject = (email.subject || "No Subject").replace(/(\r\n|\n|\r)/gm, " ");
+        const body = (email.bodyPreview || "No Content").replace(/(\r\n|\n|\r)/gm, " ");
+        prompt += `EmailID "${index}":\nSubject: ${subject}\nBody: ${body}\n\n`;
+    });
+
+    let summaries = {};
+
+    try {
+        if (!ACTIVE_GEMINI_URL) throw new Error("AI not initialized");
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }]
+        };
+
+        const response = await fetch(ACTIVE_GEMINI_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`API Error ${response.status}: ${errText}`);
+        }
+
+        const data = await response.json();
+        const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        const cleanJson = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
+        summaries = JSON.parse(cleanJson);
+
+    } catch (e) {
+        console.error("Batch Failed:", e);
+        emailBatch.forEach((_, index) => {
+            summaries[index] = "Review email regarding " + (emailBatch[index].subject || "subject");
+        });
+    }
+
+    return emailBatch.map((email, index) => {
+        const dateObj = new Date(email.receivedDateTime);
+        const senderName = email.sender?.emailAddress?.name || "Unknown";
+        const senderAddr = email.sender?.emailAddress?.address || "Unknown";
+        const recipients = (email.toRecipients || []).map(r => r.emailAddress.name).join("; ");
+        
+        let summary = summaries[index.toString()] || "Error: Summary missing";
+        summary = summary.replace(/"/g, "'"); 
+
+        return {
+            "Date": dateObj.toLocaleDateString(),
+            "Time": dateObj.toLocaleTimeString(),
+            "Sender Name": senderName,
+            "Sender Email": senderAddr,
+            "Recipient Name": recipients,
+            "Subject": (email.subject || "").replace(/,/g, " "),
+            "Summary": summary,
+            "Time Value": timeVal
+        };
+    });
+}
+
+async function getAccessToken() {
+    const msalConfig = {
+        auth: {
+            clientId: CLIENT_ID,
+            authority: "https://login.microsoftonline.com/common",
+            redirectUri: REDIRECT_URI,
+        },
+        cache: { cacheLocation: "localStorage" }
+    };
+
+    if (typeof msal === 'undefined') throw new Error("MSAL not loaded");
+
+    const msalInstance = new msal.PublicClientApplication(msalConfig);
+    const tokenRequest = { scopes: ["Mail.Read"] };
+
+    try {
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+            tokenRequest.account = accounts[0];
+            const response = await msalInstance.acquireTokenSilent(tokenRequest);
+            return response.accessToken;
+        } else {
+            throw new Error("No account");
+        }
+    } catch (err) {
+        const response = await msalInstance.acquireTokenPopup(tokenRequest);
+        return response.accessToken;
+    }
+}
+
+function generateCSV(data) {
+    if (data.length === 0) return;
+    const headers = Object.keys(data[0]);
+    const csvRows = [];
+    csvRows.push(headers.join(","));
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const values = headers.map(function(header) {
+            let val = row[header] || "";
+            val = String(val).replace(/"/g, '""'); 
+            return '"' + val + '"';
+        });
+        csvRows.push(values.join(","));
+    }
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.getElementById("downloadLink");
+    a.href = url;
+    a.download = "Billable_AI_Report_" + new Date().getTime() + ".csv";
+    a.click();
+}
+
+function updateStatus(message, isError) {
+    const el = document.getElementById("status");
+    if (el) {
+        el.innerText = "v38: " + message; 
+        el.style.color = isError ? "red" : "black";
+    }
+}
